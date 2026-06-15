@@ -1,10 +1,10 @@
 syntax = "proto3";
 
-package __PROTO_PACKAGE__;
+package taskpb;
 
-option go_package = "/__PROTO_PACKAGE__;__PROTO_PACKAGE__";
+option go_package = "/taskpb;taskpb";
 
-service __GRPC_SERVICE__ {
+service TaskService {
   rpc SayHello (HelloRequest) returns (HelloResponse);
 }
 
