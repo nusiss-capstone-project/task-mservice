@@ -1,8 +1,12 @@
 package router
 
 import (
+	"time"
+
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 
+	"github.com/nusiss-capstone-project/task-mservice/server/config"
 	_ "github.com/nusiss-capstone-project/task-mservice/server/docs"
 	"github.com/nusiss-capstone-project/task-mservice/server/http/api"
 	"github.com/nusiss-capstone-project/task-mservice/server/http/data"
@@ -21,6 +25,7 @@ func NewRouter() *gin.Engine {
 	r.Use(log.RecoveryMiddleware())
 	r.Use(otelgin.Middleware(data.ServiceName))
 	r.Use(log.HTTPObservabilityMiddleware())
+	r.Use(corsMiddleware())
 
 	basicGroup := r.Group(serviceURIPrefix)
 	{
@@ -37,4 +42,28 @@ func NewRouter() *gin.Engine {
 		basicGroup.GET("/items/:item_id", api.GetItems)
 	}
 	return r
+}
+
+func corsMiddleware() gin.HandlerFunc {
+	return cors.New(cors.Config{
+		AllowOrigins: allowedOrigins(),
+		AllowMethods: []string{
+			"GET", "POST", "PUT", "DELETE", "OPTIONS",
+		},
+		AllowHeaders: []string{
+			"Origin", "Content-Type", "Accept", "Authorization", log.RequestIDHeader,
+		},
+		ExposeHeaders: []string{
+			"Content-Length", log.RequestIDHeader,
+		},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	})
+}
+
+func allowedOrigins() []string {
+	if config.Config == nil || config.Config.SystemConfig == nil {
+		return []string{}
+	}
+	return config.Config.SystemConfig.AllowedOrigins
 }
