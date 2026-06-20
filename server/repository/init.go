@@ -36,6 +36,11 @@ func Init() {
 	}
 	err = DB.AutoMigrate(
 		&model.Item{},
+		&model.TaskGroup{},
+		&model.Task{},
+		&model.TaskCondition{},
+		&model.DataMetric{},
+		&model.MetricOperator{},
 	)
 	if err != nil {
 		panic(err)

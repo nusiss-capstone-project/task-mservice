@@ -1,0 +1,896 @@
+{
+  "info": {
+    "_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "name": "task-mservice",
+    "description": "Task Center API collection for task-mservice.\n\nImport this file into Postman, set `baseUrl` if needed (default http://localhost:8080), then run the **E2E Happy Path** folder in order, or run folders individually.\n\nPrerequisites:\n- Server running with MYSQL_DSN configured\n- Run scripts/init.sql to seed data_metric and metric_operator",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "task_group_id",
+      "value": "1"
+    },
+    {
+      "key": "task_id",
+      "value": "1"
+    },
+    {
+      "key": "item_id",
+      "value": "1"
+    }
+  ],
+  "item": [
+    {
+      "name": "E2E Happy Path",
+      "description": "Run requests top-to-bottom. IDs are chained via collection variables.",
+      "item": [
+        {
+          "name": "1. Ping",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns pong', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.message).to.eql('pong');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/task-ms/v1/ping"
+          }
+        },
+        {
+          "name": "2. List Data Metrics",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has data metrics', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.data).to.be.an('array').that.is.not.empty;",
+                  "    pm.expect(json.data[0]).to.have.property('code');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/task-ms/v1/data-metrics"
+          }
+        },
+        {
+          "name": "3. List Data Metric Operators",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has operators', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.data).to.be.an('array').that.is.not.empty;",
+                  "    pm.expect(json.data[0]).to.have.property('display');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/task-ms/v1/data-metric-operators"
+          }
+        },
+        {
+          "name": "4. Create Task Group",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Task group created', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.data).to.have.property('id');",
+                  "    pm.expect(json.data.status).to.eql('DRAFT');",
+                  "    pm.collectionVariables.set('task_group_id', json.data.id);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Campaign Task Group\"\n}"
+            },
+            "url": "{{baseUrl}}/task-ms/v1/task-groups"
+          }
+        },
+        {
+          "name": "5. Create Task",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Task created', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.data).to.have.property('id');",
+                  "    pm.expect(json.data.status).to.eql('DRAFT');",
+                  "    pm.expect(json.data.conditions).to.be.an('array').that.is.not.empty;",
+                  "    pm.collectionVariables.set('task_id', json.data.id);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"KYC Complete\",\n  \"conditions\": [\n    {\n      \"metric_id\": 1,\n      \"operator_id\": 1,\n      \"metric_value\": \"1000\"\n    },\n    {\n      \"metric_id\": 2,\n      \"operator_id\": 3,\n      \"metric_value\": \"true\"\n    }\n  ],\n  \"expression\": \"(1&2)\"\n}"
+            },
+            "url": "{{baseUrl}}/task-ms/v1/task-group/{{task_group_id}}/tasks"
+          }
+        },
+        {
+          "name": "6. Update Task",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Task updated', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.data.name).to.eql('KYC Complete Updated');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"KYC Complete Updated\",\n  \"conditions\": [\n    {\n      \"metric_id\": 1,\n      \"operator_id\": 1,\n      \"metric_value\": \"2000\"\n    },\n    {\n      \"metric_id\": 2,\n      \"operator_id\": 3,\n      \"metric_value\": \"true\"\n    }\n  ],\n  \"expression\": \"(1&2)\"\n}"
+            },
+            "url": "{{baseUrl}}/task-ms/v1/task-group/{{task_group_id}}/tasks/{{task_id}}"
+          }
+        },
+        {
+          "name": "7. List Tasks By Group",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Task list not empty', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.data).to.be.an('array').that.is.not.empty;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/task-ms/v1/task-group/{{task_group_id}}/tasks"
+          }
+        },
+        {
+          "name": "8. Get Task Detail",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Task detail has conditions', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.data.id).to.eql(Number(pm.collectionVariables.get('task_id')));",
+                  "    pm.expect(json.data.conditions).to.be.an('array').with.lengthOf(2);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/task-ms/v1/task-group/{{task_group_id}}/tasks/{{task_id}}"
+          }
+        },
+        {
+          "name": "9. Publish Task",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Task published', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.data.status).to.eql('PUBLISHED');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": {{task_id}},\n  \"status\": \"PUBLISHED\"\n}"
+            },
+            "url": "{{baseUrl}}/task-ms/v1/tasks/{{task_id}}"
+          }
+        },
+        {
+          "name": "10. List Task Groups",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Task groups listed', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.data).to.be.an('array').that.is.not.empty;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/task-ms/v1/task-groups"
+          }
+        },
+        {
+          "name": "11. Publish Task Group",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Task group published', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.data.status).to.eql('PUBLISHED');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": {{task_group_id}},\n  \"status\": \"PUBLISHED\"\n}"
+            },
+            "url": "{{baseUrl}}/task-ms/v1/task-groups/{{task_group_id}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Ping",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns pong', () => {",
+                  "    pm.expect(pm.response.json().message).to.eql('pong');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/task-ms/v1/ping"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reference",
+      "item": [
+        {
+          "name": "List Data Metrics",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Response is array', () => {",
+                  "    pm.expect(pm.response.json().data).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/task-ms/v1/data-metrics"
+          }
+        },
+        {
+          "name": "List Data Metric Operators",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Response is array', () => {",
+                  "    pm.expect(pm.response.json().data).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/task-ms/v1/data-metric-operators"
+          }
+        }
+      ]
+    },
+    {
+      "name": "TaskGroup",
+      "item": [
+        {
+          "name": "Save Task Group (Create)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Created as DRAFT', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.data.status).to.eql('DRAFT');",
+                  "    if (json.data.id) pm.collectionVariables.set('task_group_id', json.data.id);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"New Task Group\"\n}"
+            },
+            "url": "{{baseUrl}}/task-ms/v1/task-groups"
+          }
+        },
+        {
+          "name": "Save Task Group (Update)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Name updated', () => {",
+                  "    pm.expect(pm.response.json().data.name).to.eql('Updated Task Group');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": {{task_group_id}},\n  \"name\": \"Updated Task Group\"\n}"
+            },
+            "url": "{{baseUrl}}/task-ms/v1/task-groups"
+          }
+        },
+        {
+          "name": "List Task Groups",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns array', () => {",
+                  "    pm.expect(pm.response.json().data).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/task-ms/v1/task-groups"
+          }
+        },
+        {
+          "name": "Publish Task Group",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Published', () => {",
+                  "    pm.expect(pm.response.json().data.status).to.eql('PUBLISHED');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": {{task_group_id}},\n  \"status\": \"PUBLISHED\"\n}"
+            },
+            "url": "{{baseUrl}}/task-ms/v1/task-groups/{{task_group_id}}"
+          }
+        },
+        {
+          "name": "Save Task Group - Missing Name (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Has error message', () => {",
+                  "    pm.expect(pm.response.json().err_msg).to.be.a('string').that.is.not.empty;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": "{{baseUrl}}/task-ms/v1/task-groups"
+          }
+        },
+        {
+          "name": "Publish Task Group - Not Found (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": 999999,\n  \"status\": \"PUBLISHED\"\n}"
+            },
+            "url": "{{baseUrl}}/task-ms/v1/task-groups/999999"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Task",
+      "item": [
+        {
+          "name": "Create Task",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Task created', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.data).to.have.property('id');",
+                  "    pm.collectionVariables.set('task_id', json.data.id);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Net Deposit Task\",\n  \"conditions\": [\n    {\n      \"metric_id\": 1,\n      \"operator_id\": 2,\n      \"metric_value\": \"500\"\n    }\n  ],\n  \"expression\": \"1\"\n}"
+            },
+            "url": "{{baseUrl}}/task-ms/v1/task-group/{{task_group_id}}/tasks"
+          }
+        },
+        {
+          "name": "Save Task",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Task saved', () => {",
+                  "    pm.expect(pm.response.json().data).to.have.property('id');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Net Deposit Task v2\",\n  \"conditions\": [\n    {\n      \"metric_id\": 1,\n      \"operator_id\": 2,\n      \"metric_value\": \"1000\"\n    },\n    {\n      \"metric_id\": 2,\n      \"operator_id\": 3,\n      \"metric_value\": \"true\"\n    }\n  ],\n  \"expression\": \"(1&2)||3\"\n}"
+            },
+            "url": "{{baseUrl}}/task-ms/v1/task-group/{{task_group_id}}/tasks/{{task_id}}"
+          }
+        },
+        {
+          "name": "List Tasks By Group",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns array', () => {",
+                  "    pm.expect(pm.response.json().data).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/task-ms/v1/task-group/{{task_group_id}}/tasks"
+          }
+        },
+        {
+          "name": "Get Task Detail",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has conditions', () => {",
+                  "    pm.expect(pm.response.json().data.conditions).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/task-ms/v1/task-group/{{task_group_id}}/tasks/{{task_id}}"
+          }
+        },
+        {
+          "name": "Publish Task",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Published', () => {",
+                  "    pm.expect(pm.response.json().data.status).to.eql('PUBLISHED');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": {{task_id}},\n  \"status\": \"PUBLISHED\"\n}"
+            },
+            "url": "{{baseUrl}}/task-ms/v1/tasks/{{task_id}}"
+          }
+        },
+        {
+          "name": "Create Task - Missing Conditions (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Invalid Task\"\n}"
+            },
+            "url": "{{baseUrl}}/task-ms/v1/task-group/{{task_group_id}}/tasks"
+          }
+        },
+        {
+          "name": "Get Task Detail - Not Found (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/task-ms/v1/task-group/{{task_group_id}}/tasks/999999"
+          }
+        },
+        {
+          "name": "Publish Task - Not Found (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": 999999,\n  \"status\": \"PUBLISHED\"\n}"
+            },
+            "url": "{{baseUrl}}/task-ms/v1/tasks/999999"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Item (Sample)",
+      "item": [
+        {
+          "name": "Create Item",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Item created', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.data).to.have.property('item_id');",
+                  "    pm.collectionVariables.set('item_id', json.data.item_id);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"sample-item\"\n}"
+            },
+            "url": "{{baseUrl}}/task-ms/v1/items"
+          }
+        },
+        {
+          "name": "Get Item By ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Item returned', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.data).to.have.property('name');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/task-ms/v1/items/{{item_id}}"
+          }
+        },
+        {
+          "name": "Get Item - Invalid ID (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/task-ms/v1/items/abc"
+          }
+        }
+      ]
+    }
+  ]
+}

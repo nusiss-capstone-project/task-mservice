@@ -7,6 +7,13 @@ definitions:
       err_msg:
         type: string
     type: object
+  data.DataMetricVO:
+    properties:
+      code:
+        type: string
+      id:
+        type: integer
+    type: object
   data.ItemVO:
     properties:
       id:
@@ -16,9 +23,125 @@ definitions:
     required:
     - name
     type: object
+  data.MetricOperatorVO:
+    properties:
+      code:
+        type: string
+      display:
+        type: string
+      id:
+        type: integer
+    type: object
+  data.PublishStatusVO:
+    properties:
+      id:
+        type: integer
+      status:
+        type: string
+    required:
+    - id
+    - status
+    type: object
+  data.TaskConditionVO:
+    properties:
+      metric_id:
+        type: integer
+      metric_value:
+        type: string
+      "no":
+        type: integer
+      operator_id:
+        type: integer
+    required:
+    - metric_id
+    - metric_value
+    - operator_id
+    type: object
+  data.TaskGroupVO:
+    properties:
+      id:
+        type: integer
+      name:
+        type: string
+      status:
+        type: string
+    required:
+    - name
+    type: object
+  data.TaskVO:
+    properties:
+      conditions:
+        items:
+          $ref: '#/definitions/data.TaskConditionVO'
+        type: array
+      end_time:
+        type: string
+      expression:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      start_time:
+        type: string
+      status:
+        type: string
+      task_group_id:
+        type: integer
+    required:
+    - name
+    type: object
 info:
   contact: {}
 paths:
+  /task-ms/v1/data-metric-operators:
+    get:
+      description: List metric operators used for task condition configuration.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/data.MetricOperatorVO'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: List DataMetricOperator
+      tags:
+      - Reference
+  /task-ms/v1/data-metrics:
+    get:
+      description: List data metrics used for task condition configuration.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/data.DataMetricVO'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: List DataMetric
+      tags:
+      - Reference
   /task-ms/v1/items:
     post:
       consumes:
@@ -79,4 +202,322 @@ paths:
       summary: Item Query with ID
       tags:
       - Item
+  /task-ms/v1/task-group/{task_group_id}/tasks:
+    get:
+      description: List tasks belonging to a task group.
+      parameters:
+      - description: Task group ID
+        in: path
+        name: task_group_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/data.TaskVO'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: List Task by GroupId
+      tags:
+      - Task
+    post:
+      consumes:
+      - application/json
+      description: Create a new task with conditions in a draft task group.
+      parameters:
+      - description: Task group ID
+        in: path
+        name: task_group_id
+        required: true
+        type: integer
+      - description: Task
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/data.TaskVO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/data.TaskVO'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: Create Task
+      tags:
+      - Task
+  /task-ms/v1/task-group/{task_group_id}/tasks/{task_id}:
+    get:
+      description: Get task detail including conditions.
+      parameters:
+      - description: Task group ID
+        in: path
+        name: task_group_id
+        required: true
+        type: integer
+      - description: Task ID
+        in: path
+        name: task_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/data.TaskVO'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: Get Task Detail
+      tags:
+      - Task
+    put:
+      consumes:
+      - application/json
+      description: Update a draft task and its conditions.
+      parameters:
+      - description: Task group ID
+        in: path
+        name: task_group_id
+        required: true
+        type: integer
+      - description: Task ID
+        in: path
+        name: task_id
+        required: true
+        type: integer
+      - description: Task
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/data.TaskVO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/data.TaskVO'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: Save Task
+      tags:
+      - Task
+  /task-ms/v1/task-groups:
+    get:
+      description: List all task groups.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/data.TaskGroupVO'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: List TaskGroup
+      tags:
+      - TaskGroup
+    post:
+      consumes:
+      - application/json
+      description: Create a new task group or update an existing draft task group.
+      parameters:
+      - description: Task group
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/data.TaskGroupVO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/data.TaskGroupVO'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: Save TaskGroup
+      tags:
+      - TaskGroup
+  /task-ms/v1/task-groups/{task_group_id}:
+    patch:
+      consumes:
+      - application/json
+      description: Publish a draft task group.
+      parameters:
+      - description: Task group ID
+        in: path
+        name: task_group_id
+        required: true
+        type: integer
+      - description: Publish status
+        in: body
+        name: body
+        schema:
+          $ref: '#/definitions/data.PublishStatusVO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/data.PublishStatusVO'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: Publish TaskGroup
+      tags:
+      - TaskGroup
+  /task-ms/v1/tasks/{task_id}:
+    patch:
+      consumes:
+      - application/json
+      description: Publish a draft task.
+      parameters:
+      - description: Task ID
+        in: path
+        name: task_id
+        required: true
+        type: integer
+      - description: Publish status
+        in: body
+        name: body
+        schema:
+          $ref: '#/definitions/data.PublishStatusVO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/data.PublishStatusVO'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: Publish Task
+      tags:
+      - Task
 swagger: "2.0"

@@ -40,6 +40,19 @@ func NewRouter() *gin.Engine {
 		})
 		basicGroup.POST("/items", api.CreateItem)
 		basicGroup.GET("/items/:item_id", api.GetItems)
+
+		basicGroup.POST("/task-groups", api.SaveTaskGroup)
+		basicGroup.GET("/task-groups", api.ListTaskGroups)
+		basicGroup.PATCH("/task-groups/:task_group_id", api.PublishTaskGroup)
+
+		basicGroup.POST("/task-group/:task_group_id/tasks", api.CreateTask)
+		basicGroup.PUT("/task-group/:task_group_id/tasks/:task_id", api.SaveTask)
+		basicGroup.GET("/task-group/:task_group_id/tasks", api.ListTasksByGroup)
+		basicGroup.GET("/task-group/:task_group_id/tasks/:task_id", api.GetTaskDetail)
+		basicGroup.PATCH("/tasks/:task_id", api.PublishTask)
+
+		basicGroup.GET("/data-metrics", api.ListDataMetrics)
+		basicGroup.GET("/data-metric-operators", api.ListDataMetricOperators)
 	}
 	return r
 }
@@ -48,7 +61,7 @@ func corsMiddleware() gin.HandlerFunc {
 	return cors.New(cors.Config{
 		AllowOrigins: allowedOrigins(),
 		AllowMethods: []string{
-			"GET", "POST", "PUT", "DELETE", "OPTIONS",
+			"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS",
 		},
 		AllowHeaders: []string{
 			"Origin", "Content-Type", "Accept", "Authorization", log.RequestIDHeader,
