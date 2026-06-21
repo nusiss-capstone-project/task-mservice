@@ -2,10 +2,11 @@ package service
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"sync"
 
 	"github.com/nusiss-capstone-project/task-mservice/server/http/data"
+	"github.com/nusiss-capstone-project/task-mservice/server/log"
 	"github.com/nusiss-capstone-project/task-mservice/server/repository/dao"
 )
 
@@ -37,7 +38,8 @@ func GetReferenceService() *ReferenceServiceImpl {
 func (s *ReferenceServiceImpl) ListDataMetrics(ctx context.Context) ([]data.DataMetricVO, error) {
 	metrics, err := s.dataMetricDao.List(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list data metrics: %w", err)
+		log.Logger.Errorf("list data metrics: %v", err)
+		return nil, errors.New(data.ErrServerError)
 	}
 	result := make([]data.DataMetricVO, 0, len(metrics))
 	for _, metric := range metrics {
@@ -52,7 +54,8 @@ func (s *ReferenceServiceImpl) ListDataMetrics(ctx context.Context) ([]data.Data
 func (s *ReferenceServiceImpl) ListMetricOperators(ctx context.Context) ([]data.MetricOperatorVO, error) {
 	operators, err := s.metricOperatorDao.List(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list metric operators: %w", err)
+		log.Logger.Errorf("list metric operators: %v", err)
+		return nil, errors.New(data.ErrServerError)
 	}
 	result := make([]data.MetricOperatorVO, 0, len(operators))
 	for _, op := range operators {

@@ -131,7 +131,7 @@ func GetTaskDetail(c *gin.Context) {
 		return
 	}
 	if ret == nil {
-		c.JSON(http.StatusNotFound, data.BaseResponse{ErrMsg: "task not found"})
+		c.JSON(http.StatusNotFound, data.BaseResponse{ErrMsg: data.ErrTaskNotFound})
 		return
 	}
 	c.JSON(http.StatusOK, data.BaseResponse{Data: ret})
@@ -167,7 +167,7 @@ func PublishTask(c *gin.Context) {
 func parsePathID(c *gin.Context, name string) (int, error) {
 	id, err := strconv.Atoi(c.Param(name))
 	if err != nil || id <= 0 {
-		c.JSON(http.StatusBadRequest, data.BaseResponse{ErrMsg: "invalid " + name})
+		c.JSON(http.StatusBadRequest, data.BaseResponse{ErrMsg: data.ErrInvalidInput})
 		return 0, err
 	}
 	return id, nil

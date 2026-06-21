@@ -72,7 +72,7 @@ func ListTaskGroups(c *gin.Context) {
 func PublishTaskGroup(c *gin.Context) {
 	groupID, err := strconv.Atoi(c.Param("task_group_id"))
 	if err != nil || groupID <= 0 {
-		c.JSON(http.StatusBadRequest, data.BaseResponse{ErrMsg: "invalid task group id"})
+		c.JSON(http.StatusBadRequest, data.BaseResponse{ErrMsg: data.ErrInvalidInput})
 		return
 	}
 	ret, err := service.GetTaskGroupService().PublishTaskGroup(c.Request.Context(), groupID)

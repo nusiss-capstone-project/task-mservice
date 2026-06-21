@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 
 	"github.com/nusiss-capstone-project/task-mservice/server/http/data"
@@ -22,9 +21,9 @@ type TaskService interface {
 }
 
 type TaskServiceImpl struct {
-	taskGroupDao      dao.TaskGroupDao
-	taskDao           dao.TaskDao
-	taskConditionDao  dao.TaskConditionDao
+	taskGroupDao     dao.TaskGroupDao
+	taskDao          dao.TaskDao
+	taskConditionDao dao.TaskConditionDao
 }
 
 var (
@@ -45,7 +44,7 @@ func GetTaskService() *TaskServiceImpl {
 
 func (s *TaskServiceImpl) CreateTask(ctx context.Context, groupID int, vo *data.TaskVO) (*data.TaskVO, error) {
 	if vo == nil {
-		return nil, errors.New("task is nil")
+		return nil, errors.New(data.ErrTaskNil)
 	}
 	if err := s.validateTaskGroupWritable(ctx, groupID); err != nil {
 		return nil, err
@@ -66,16 +65,16 @@ func (s *TaskServiceImpl) CreateTask(ctx context.Context, groupID int, vo *data.
 
 	id, err := s.taskDao.Save(ctx, task)
 	if err != nil {
-		log.Logger.Errorf("failed to create task: %v", err)
-		return nil, fmt.Errorf("failed to create task: %w", err)
+		log.Logger.Errorf("create task in group %d: %v", groupID, err)
+		return nil, errors.New(data.ErrServerError)
 	}
 	task.ID = id
 	for i := range conditions {
 		conditions[i].TaskID = id
 	}
 	if err := s.taskConditionDao.ReplaceByTaskID(ctx, id, conditions); err != nil {
-		log.Logger.Errorf("failed to create task conditions: %v", err)
-		return nil, fmt.Errorf("failed to create task conditions: %w", err)
+		log.Logger.Errorf("create task conditions for task %d: %v", id, err)
+		return nil, errors.New(data.ErrServerError)
 	}
 	log.Logger.Infof("task created, id=%d, group_id=%d", task.ID, groupID)
 	return s.buildTaskVO(ctx, task, conditions)
@@ -83,7 +82,7 @@ func (s *TaskServiceImpl) CreateTask(ctx context.Context, groupID int, vo *data.
 
 func (s *TaskServiceImpl) SaveTask(ctx context.Context, groupID, taskID int, vo *data.TaskVO) (*data.TaskVO, error) {
 	if vo == nil {
-		return nil, errors.New("task is nil")
+		return nil, errors.New(data.ErrTaskNil)
 	}
 	if err := validateTaskInput(vo); err != nil {
 		return nil, err
@@ -91,13 +90,14 @@ func (s *TaskServiceImpl) SaveTask(ctx context.Context, groupID, taskID int, vo 
 
 	task, err := s.taskDao.GetByID(ctx, taskID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get task: %w", err)
+		log.Logger.Errorf("[SaveTask] get task %d: %v", taskID, err)
+		return nil, errors.New(data.ErrServerError)
 	}
 	if task == nil || task.TaskGroupID != groupID {
-		return nil, errors.New("task not found")
+		return nil, errors.New(data.ErrTaskNotFound)
 	}
 	if task.Status == model.StatusPublished {
-		return nil, errors.New("published task cannot be modified")
+		return nil, errors.New(data.ErrPublishedTaskCannotModify)
 	}
 	if err := s.validateTaskGroupWritable(ctx, groupID); err != nil {
 		return nil, err
@@ -110,12 +110,12 @@ func (s *TaskServiceImpl) SaveTask(ctx context.Context, groupID, taskID int, vo 
 	conditions := toTaskConditions(taskID, vo.Conditions)
 
 	if _, err := s.taskDao.Save(ctx, task); err != nil {
-		log.Logger.Errorf("failed to save task %d: %v", taskID, err)
-		return nil, fmt.Errorf("failed to save task: %w", err)
+		log.Logger.Errorf("save task %d: %v", taskID, err)
+		return nil, errors.New(data.ErrServerError)
 	}
 	if err := s.taskConditionDao.ReplaceByTaskID(ctx, taskID, conditions); err != nil {
-		log.Logger.Errorf("failed to save task conditions %d: %v", taskID, err)
-		return nil, fmt.Errorf("failed to save task conditions: %w", err)
+		log.Logger.Errorf("save task conditions for task %d: %v", taskID, err)
+		return nil, errors.New(data.ErrServerError)
 	}
 	log.Logger.Infof("task saved, id=%d", taskID)
 	return s.buildTaskVO(ctx, task, conditions)
@@ -124,15 +124,17 @@ func (s *TaskServiceImpl) SaveTask(ctx context.Context, groupID, taskID int, vo 
 func (s *TaskServiceImpl) ListTasksByGroupID(ctx context.Context, groupID int) ([]data.TaskVO, error) {
 	group, err := s.taskGroupDao.GetByID(ctx, groupID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get task group: %w", err)
+		log.Logger.Errorf("[ListTasksByGroupID] get task group %d: %v", groupID, err)
+		return nil, errors.New(data.ErrServerError)
 	}
 	if group == nil {
-		return nil, errors.New("task group not found")
+		return nil, errors.New(data.ErrTaskGroupNotFound)
 	}
 
 	tasks, err := s.taskDao.ListByGroupID(ctx, groupID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list tasks: %w", err)
+		log.Logger.Errorf("list tasks for group %d: %v", groupID, err)
+		return nil, errors.New(data.ErrServerError)
 	}
 	result := make([]data.TaskVO, 0, len(tasks))
 	for i := range tasks {
@@ -144,14 +146,16 @@ func (s *TaskServiceImpl) ListTasksByGroupID(ctx context.Context, groupID int) (
 func (s *TaskServiceImpl) GetTaskDetail(ctx context.Context, groupID, taskID int) (*data.TaskVO, error) {
 	task, err := s.taskDao.GetByID(ctx, taskID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get task: %w", err)
+		log.Logger.Errorf("[GetTaskDetail] get task %d: %v", taskID, err)
+		return nil, errors.New(data.ErrServerError)
 	}
 	if task == nil || task.TaskGroupID != groupID {
 		return nil, nil
 	}
 	conditions, err := s.taskConditionDao.ListByTaskID(ctx, taskID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list task conditions: %w", err)
+		log.Logger.Errorf("list conditions for task %d: %v", taskID, err)
+		return nil, errors.New(data.ErrServerError)
 	}
 	return s.buildTaskVO(ctx, task, conditions)
 }
@@ -159,19 +163,21 @@ func (s *TaskServiceImpl) GetTaskDetail(ctx context.Context, groupID, taskID int
 func (s *TaskServiceImpl) PublishTask(ctx context.Context, taskID int) (*data.PublishStatusVO, error) {
 	task, err := s.taskDao.GetByID(ctx, taskID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get task: %w", err)
+		log.Logger.Errorf("[PublishTask] get task %d: %v", taskID, err)
+		return nil, errors.New(data.ErrServerError)
 	}
 	if task == nil {
-		return nil, errors.New("task not found")
+		return nil, errors.New(data.ErrTaskNotFound)
 	}
 	if task.Status == model.StatusPublished {
 		return &data.PublishStatusVO{ID: taskID, Status: model.StatusPublished}, nil
 	}
 	if err := s.taskDao.UpdateStatus(ctx, taskID, model.StatusPublished); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("task not found")
+			return nil, errors.New(data.ErrTaskNotFound)
 		}
-		return nil, fmt.Errorf("failed to publish task: %w", err)
+		log.Logger.Errorf("publish task %d: %v", taskID, err)
+		return nil, errors.New(data.ErrServerError)
 	}
 	log.Logger.Infof("task published, id=%d", taskID)
 	return &data.PublishStatusVO{ID: taskID, Status: model.StatusPublished}, nil
@@ -180,27 +186,28 @@ func (s *TaskServiceImpl) PublishTask(ctx context.Context, taskID int) (*data.Pu
 func (s *TaskServiceImpl) validateTaskGroupWritable(ctx context.Context, groupID int) error {
 	group, err := s.taskGroupDao.GetByID(ctx, groupID)
 	if err != nil {
-		return fmt.Errorf("failed to get task group: %w", err)
+		log.Logger.Errorf("[validateTaskGroupWritable] get task group %d: %v", groupID, err)
+		return errors.New(data.ErrServerError)
 	}
 	if group == nil {
-		return errors.New("task group not found")
+		return errors.New(data.ErrTaskGroupNotFound)
 	}
 	if group.Status == model.StatusPublished {
-		return errors.New("task group is published and cannot be modified")
+		return errors.New(data.ErrTaskGroupPublishedCannotModify)
 	}
 	return nil
 }
 
 func validateTaskInput(vo *data.TaskVO) error {
 	if vo.Name == "" {
-		return errors.New("task name is required")
+		return errors.New(data.ErrTaskNameRequired)
 	}
 	if len(vo.Conditions) == 0 {
-		return errors.New("at least one condition is required")
+		return errors.New(data.ErrAtLeastOneConditionRequired)
 	}
-	for i, cond := range vo.Conditions {
+	for _, cond := range vo.Conditions {
 		if cond.MetricID <= 0 || cond.OperatorID <= 0 {
-			return fmt.Errorf("invalid condition at index %d", i)
+			return errors.New(data.ErrInvalidInput)
 		}
 	}
 	return nil
@@ -242,7 +249,8 @@ func (s *TaskServiceImpl) buildTaskVO(ctx context.Context, task *model.Task, con
 		var err error
 		conditions, err = s.taskConditionDao.ListByTaskID(ctx, task.ID)
 		if err != nil {
-			return nil, err
+			log.Logger.Errorf("list conditions for task %d: %v", task.ID, err)
+			return nil, errors.New(data.ErrServerError)
 		}
 	}
 	vo.Conditions = make([]data.TaskConditionVO, 0, len(conditions))

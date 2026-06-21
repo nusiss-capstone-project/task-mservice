@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 
 	"github.com/nusiss-capstone-project/task-mservice/server/http/data"
@@ -37,27 +36,29 @@ func GetTaskGroupService() *TaskGroupServiceImpl {
 
 func (s *TaskGroupServiceImpl) SaveTaskGroup(ctx context.Context, vo *data.TaskGroupVO) (*data.TaskGroupVO, error) {
 	if vo == nil {
-		return nil, errors.New("task group is nil")
+		return nil, errors.New(data.ErrTaskGroupNil)
 	}
 	if vo.Name == "" {
-		return nil, errors.New("task group name is required")
+		return nil, errors.New(data.ErrTaskGroupNameRequired)
 	}
 
 	if vo.ID > 0 {
 		existing, err := s.taskGroupDao.GetByID(ctx, vo.ID)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get task group: %w", err)
+			log.Logger.Errorf("get task group %d: %v", vo.ID, err)
+			return nil, errors.New(data.ErrServerError)
 		}
 		if existing == nil {
-			return nil, errors.New("task group not found")
+			return nil, errors.New(data.ErrTaskGroupNotFound)
 		}
 		if existing.Status == model.StatusPublished {
-			return nil, errors.New("published task group cannot be modified")
+			return nil, errors.New(data.ErrPublishedTaskGroupCannotModify)
 		}
 		existing.Name = vo.Name
 		id, err := s.taskGroupDao.Save(ctx, existing)
 		if err != nil {
-			return nil, fmt.Errorf("failed to update task group: %w", err)
+			log.Logger.Errorf("update task group %d: %v", vo.ID, err)
+			return nil, errors.New(data.ErrServerError)
 		}
 		log.Logger.Infof("task group updated, id=%d", id)
 		return toTaskGroupVO(existing), nil
@@ -69,7 +70,8 @@ func (s *TaskGroupServiceImpl) SaveTaskGroup(ctx context.Context, vo *data.TaskG
 	}
 	id, err := s.taskGroupDao.Save(ctx, group)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create task group: %w", err)
+		log.Logger.Errorf("create task group: %v", err)
+		return nil, errors.New(data.ErrServerError)
 	}
 	group.ID = id
 	log.Logger.Infof("task group created, id=%d", id)
@@ -79,7 +81,8 @@ func (s *TaskGroupServiceImpl) SaveTaskGroup(ctx context.Context, vo *data.TaskG
 func (s *TaskGroupServiceImpl) ListTaskGroups(ctx context.Context) ([]data.TaskGroupVO, error) {
 	groups, err := s.taskGroupDao.List(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list task groups: %w", err)
+		log.Logger.Errorf("list task groups: %v", err)
+		return nil, errors.New(data.ErrServerError)
 	}
 	result := make([]data.TaskGroupVO, 0, len(groups))
 	for i := range groups {
@@ -91,19 +94,21 @@ func (s *TaskGroupServiceImpl) ListTaskGroups(ctx context.Context) ([]data.TaskG
 func (s *TaskGroupServiceImpl) PublishTaskGroup(ctx context.Context, id int) (*data.PublishStatusVO, error) {
 	group, err := s.taskGroupDao.GetByID(ctx, id)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get task group: %w", err)
+		log.Logger.Errorf("get task group %d: %v", id, err)
+		return nil, errors.New(data.ErrServerError)
 	}
 	if group == nil {
-		return nil, errors.New("task group not found")
+		return nil, errors.New(data.ErrTaskGroupNotFound)
 	}
 	if group.Status == model.StatusPublished {
 		return &data.PublishStatusVO{ID: id, Status: model.StatusPublished}, nil
 	}
 	if err := s.taskGroupDao.UpdateStatus(ctx, id, model.StatusPublished); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("task group not found")
+			return nil, errors.New(data.ErrTaskGroupNotFound)
 		}
-		return nil, fmt.Errorf("failed to publish task group: %w", err)
+		log.Logger.Errorf("publish task group %d: %v", id, err)
+		return nil, errors.New(data.ErrServerError)
 	}
 	log.Logger.Infof("task group published, id=%d", id)
 	return &data.PublishStatusVO{ID: id, Status: model.StatusPublished}, nil
