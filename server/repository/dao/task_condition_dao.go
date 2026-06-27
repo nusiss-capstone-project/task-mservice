@@ -2,6 +2,7 @@ package dao
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	"github.com/nusiss-capstone-project/task-mservice/server/log"
@@ -13,6 +14,7 @@ import (
 type TaskConditionDao interface {
 	ReplaceByTaskID(ctx context.Context, taskID int, conditions []model.TaskCondition) error
 	ListByTaskID(ctx context.Context, taskID int) ([]model.TaskCondition, error)
+	GetByID(ctx context.Context, id int) (*model.TaskCondition, error)
 }
 
 type TaskConditionDaoImpl struct {
@@ -58,4 +60,17 @@ func (d *TaskConditionDaoImpl) ListByTaskID(ctx context.Context, taskID int) ([]
 		return nil, ret.Error
 	}
 	return conditions, nil
+}
+
+func (d *TaskConditionDaoImpl) GetByID(ctx context.Context, id int) (*model.TaskCondition, error) {
+	var condition model.TaskCondition
+	ret := d.db.WithContext(ctx).Where("id = ?", id).First(&condition)
+	if ret.Error != nil {
+		if errors.Is(ret.Error, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		log.Logger.Errorf("failed to get task condition %d: %v", id, ret.Error)
+		return nil, ret.Error
+	}
+	return &condition, nil
 }

@@ -18,3 +18,11 @@ func (m *MetricOperatorDao) List(ctx context.Context) ([]model.MetricOperator, e
 	}
 	return args.Get(0).([]model.MetricOperator), args.Error(1)
 }
+
+func (m *MetricOperatorDao) GetByID(ctx context.Context, id int) (*model.MetricOperator, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.MetricOperator), args.Error(1)
+}

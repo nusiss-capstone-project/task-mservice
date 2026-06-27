@@ -69,6 +69,7 @@ CREATE TABLE IF NOT EXISTS task_condition_execution_progress (
     condition_id BIGINT NOT NULL,
     current_value VARCHAR(255) NULL,
     status VARCHAR(32) NOT NULL DEFAULT 'Init',
+    last_event_time DATETIME NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_condition_progress_execution_id (execution_id)
