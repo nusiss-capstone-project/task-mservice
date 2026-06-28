@@ -19,7 +19,8 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	TaskService_SayHello_FullMethodName = "/taskpb.TaskService/SayHello"
+	TaskService_SayHello_FullMethodName   = "/taskpb.TaskService/SayHello"
+	TaskService_EnrollTask_FullMethodName = "/taskpb.TaskService/EnrollTask"
 )
 
 // TaskServiceClient is the client API for TaskService service.
@@ -27,6 +28,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type TaskServiceClient interface {
 	SayHello(ctx context.Context, in *HelloRequest, opts ...grpc.CallOption) (*HelloResponse, error)
+	EnrollTask(ctx context.Context, in *EnrollTaskRequest, opts ...grpc.CallOption) (*EnrollTaskResponse, error)
 }
 
 type taskServiceClient struct {
@@ -47,11 +49,22 @@ func (c *taskServiceClient) SayHello(ctx context.Context, in *HelloRequest, opts
 	return out, nil
 }
 
+func (c *taskServiceClient) EnrollTask(ctx context.Context, in *EnrollTaskRequest, opts ...grpc.CallOption) (*EnrollTaskResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EnrollTaskResponse)
+	err := c.cc.Invoke(ctx, TaskService_EnrollTask_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // TaskServiceServer is the server API for TaskService service.
 // All implementations must embed UnimplementedTaskServiceServer
 // for forward compatibility.
 type TaskServiceServer interface {
 	SayHello(context.Context, *HelloRequest) (*HelloResponse, error)
+	EnrollTask(context.Context, *EnrollTaskRequest) (*EnrollTaskResponse, error)
 	mustEmbedUnimplementedTaskServiceServer()
 }
 
@@ -64,6 +77,9 @@ type UnimplementedTaskServiceServer struct{}
 
 func (UnimplementedTaskServiceServer) SayHello(context.Context, *HelloRequest) (*HelloResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SayHello not implemented")
+}
+func (UnimplementedTaskServiceServer) EnrollTask(context.Context, *EnrollTaskRequest) (*EnrollTaskResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method EnrollTask not implemented")
 }
 func (UnimplementedTaskServiceServer) mustEmbedUnimplementedTaskServiceServer() {}
 func (UnimplementedTaskServiceServer) testEmbeddedByValue()                     {}
@@ -104,6 +120,24 @@ func _TaskService_SayHello_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _TaskService_EnrollTask_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EnrollTaskRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TaskServiceServer).EnrollTask(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TaskService_EnrollTask_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TaskServiceServer).EnrollTask(ctx, req.(*EnrollTaskRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // TaskService_ServiceDesc is the grpc.ServiceDesc for TaskService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -114,6 +148,10 @@ var TaskService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SayHello",
 			Handler:    _TaskService_SayHello_Handler,
+		},
+		{
+			MethodName: "EnrollTask",
+			Handler:    _TaskService_EnrollTask_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

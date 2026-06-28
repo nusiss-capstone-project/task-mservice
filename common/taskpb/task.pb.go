@@ -109,6 +109,110 @@ func (x *HelloResponse) GetMessage() string {
 	return ""
 }
 
+type EnrollTaskRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        int64                  `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	TaskId        int64                  `protobuf:"varint,2,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EnrollTaskRequest) Reset() {
+	*x = EnrollTaskRequest{}
+	mi := &file_proto_task_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EnrollTaskRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EnrollTaskRequest) ProtoMessage() {}
+
+func (x *EnrollTaskRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_task_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EnrollTaskRequest.ProtoReflect.Descriptor instead.
+func (*EnrollTaskRequest) Descriptor() ([]byte, []int) {
+	return file_proto_task_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *EnrollTaskRequest) GetUserId() int64 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
+func (x *EnrollTaskRequest) GetTaskId() int64 {
+	if x != nil {
+		return x.TaskId
+	}
+	return 0
+}
+
+type EnrollTaskResponse struct {
+	state                             protoimpl.MessageState `protogen:"open.v1"`
+	TaskExecutionProgressId           int64                  `protobuf:"varint,1,opt,name=task_execution_progress_id,json=taskExecutionProgressId,proto3" json:"task_execution_progress_id,omitempty"`
+	TaskConditionExecutionProgressIds []int64                `protobuf:"varint,2,rep,packed,name=task_condition_execution_progress_ids,json=taskConditionExecutionProgressIds,proto3" json:"task_condition_execution_progress_ids,omitempty"`
+	unknownFields                     protoimpl.UnknownFields
+	sizeCache                         protoimpl.SizeCache
+}
+
+func (x *EnrollTaskResponse) Reset() {
+	*x = EnrollTaskResponse{}
+	mi := &file_proto_task_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EnrollTaskResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EnrollTaskResponse) ProtoMessage() {}
+
+func (x *EnrollTaskResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_task_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EnrollTaskResponse.ProtoReflect.Descriptor instead.
+func (*EnrollTaskResponse) Descriptor() ([]byte, []int) {
+	return file_proto_task_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *EnrollTaskResponse) GetTaskExecutionProgressId() int64 {
+	if x != nil {
+		return x.TaskExecutionProgressId
+	}
+	return 0
+}
+
+func (x *EnrollTaskResponse) GetTaskConditionExecutionProgressIds() []int64 {
+	if x != nil {
+		return x.TaskConditionExecutionProgressIds
+	}
+	return nil
+}
+
 var File_proto_task_proto protoreflect.FileDescriptor
 
 const file_proto_task_proto_rawDesc = "" +
@@ -117,9 +221,17 @@ const file_proto_task_proto_rawDesc = "" +
 	"\fHelloRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\")\n" +
 	"\rHelloResponse\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage2F\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"E\n" +
+	"\x11EnrollTaskRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\x03R\x06userId\x12\x17\n" +
+	"\atask_id\x18\x02 \x01(\x03R\x06taskId\"\xa3\x01\n" +
+	"\x12EnrollTaskResponse\x12;\n" +
+	"\x1atask_execution_progress_id\x18\x01 \x01(\x03R\x17taskExecutionProgressId\x12P\n" +
+	"%task_condition_execution_progress_ids\x18\x02 \x03(\x03R!taskConditionExecutionProgressIds2\x8b\x01\n" +
 	"\vTaskService\x127\n" +
-	"\bSayHello\x12\x14.taskpb.HelloRequest\x1a\x15.taskpb.HelloResponseB\x10Z\x0e/taskpb;taskpbb\x06proto3"
+	"\bSayHello\x12\x14.taskpb.HelloRequest\x1a\x15.taskpb.HelloResponse\x12C\n" +
+	"\n" +
+	"EnrollTask\x12\x19.taskpb.EnrollTaskRequest\x1a\x1a.taskpb.EnrollTaskResponseB\x10Z\x0e/taskpb;taskpbb\x06proto3"
 
 var (
 	file_proto_task_proto_rawDescOnce sync.Once
@@ -133,16 +245,20 @@ func file_proto_task_proto_rawDescGZIP() []byte {
 	return file_proto_task_proto_rawDescData
 }
 
-var file_proto_task_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_proto_task_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_proto_task_proto_goTypes = []any{
-	(*HelloRequest)(nil),  // 0: taskpb.HelloRequest
-	(*HelloResponse)(nil), // 1: taskpb.HelloResponse
+	(*HelloRequest)(nil),       // 0: taskpb.HelloRequest
+	(*HelloResponse)(nil),      // 1: taskpb.HelloResponse
+	(*EnrollTaskRequest)(nil),  // 2: taskpb.EnrollTaskRequest
+	(*EnrollTaskResponse)(nil), // 3: taskpb.EnrollTaskResponse
 }
 var file_proto_task_proto_depIdxs = []int32{
 	0, // 0: taskpb.TaskService.SayHello:input_type -> taskpb.HelloRequest
-	1, // 1: taskpb.TaskService.SayHello:output_type -> taskpb.HelloResponse
-	1, // [1:2] is the sub-list for method output_type
-	0, // [0:1] is the sub-list for method input_type
+	2, // 1: taskpb.TaskService.EnrollTask:input_type -> taskpb.EnrollTaskRequest
+	1, // 2: taskpb.TaskService.SayHello:output_type -> taskpb.HelloResponse
+	3, // 3: taskpb.TaskService.EnrollTask:output_type -> taskpb.EnrollTaskResponse
+	2, // [2:4] is the sub-list for method output_type
+	0, // [0:2] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
 	0, // [0:0] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name
@@ -159,7 +275,7 @@ func file_proto_task_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_task_proto_rawDesc), len(file_proto_task_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
