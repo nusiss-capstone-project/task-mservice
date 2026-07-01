@@ -36,12 +36,6 @@ type taskCompleteProducerImpl struct {
 	topic    string
 }
 
-type nopTaskCompleteProducer struct{}
-
-func (nopTaskCompleteProducer) PublishTaskCompleted(context.Context, int, int, TaskCompletionStatus) error {
-	return nil
-}
-
 var (
 	taskCompleteProducerOnce sync.Once
 	taskCompleteProducerInst TaskCompleteProducer

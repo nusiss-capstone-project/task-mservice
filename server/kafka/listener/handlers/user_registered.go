@@ -28,11 +28,18 @@ func handleUserEvent(ctx context.Context, msg *kafka.Message) error {
 	if err := event.Validate(); err != nil {
 		return fmt.Errorf("invalid user registered event: %w", err)
 	}
-	metric, _ := dao.GetDataMetricDao().GetByCode(ctx, metricCode)
+	metric, err := dao.GetDataMetricDao().GetByCode(ctx, metricCode)
+	if err != nil {
+		return fmt.Errorf("get data metric %s: %w", metricCode, err)
+	}
 	if metric == nil {
 		return fmt.Errorf("data metric not found: %s", metricCode)
 	}
-	service.GetUserTaskProgressService().UpdateUserTaskProgress(ctx, event.UserID, metric.ID, "true", time.Unix(int64(event.RegisterTime), 0))
+	if err := service.GetUserTaskProgressService().UpdateUserTaskProgress(
+		ctx, event.UserID, metric.ID, "true", time.Unix(int64(event.RegisterTime), 0),
+	); err != nil {
+		return fmt.Errorf("update user task progress: %w", err)
+	}
 	return nil
 }
 
