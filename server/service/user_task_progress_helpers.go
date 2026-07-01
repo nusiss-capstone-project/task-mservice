@@ -108,6 +108,8 @@ func evaluateTaskExpression(expression string, completedByNo map[int]bool) (bool
 		return false, replaceErr
 	}
 
+	normalized = normalizeLogicalOperators(normalized)
+
 	program, err := expr.Compile(normalized, expr.Env(env), expr.AsBool())
 	if err != nil {
 		return false, fmt.Errorf("compile task expression: %w", err)
@@ -121,4 +123,16 @@ func evaluateTaskExpression(expression string, completedByNo map[int]bool) (bool
 		return false, fmt.Errorf("task expression result is not bool")
 	}
 	return value, nil
+}
+
+// normalizeLogicalOperators converts task DSL operators (&, |) to expr-lang syntax (&&, ||).
+func normalizeLogicalOperators(expr string) string {
+	expr = strings.ReplaceAll(expr, "||", "\x00")
+	expr = strings.ReplaceAll(expr, "|", "||")
+	expr = strings.ReplaceAll(expr, "\x00", "||")
+
+	expr = strings.ReplaceAll(expr, "&&", "\x01")
+	expr = strings.ReplaceAll(expr, "&", "&&")
+	expr = strings.ReplaceAll(expr, "\x01", "&&")
+	return expr
 }

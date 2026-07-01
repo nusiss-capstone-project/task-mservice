@@ -9,6 +9,19 @@ service TaskService {
   rpc EnrollTask (EnrollTaskRequest) returns (EnrollTaskResponse);
 }
 
+enum ErrorCode {
+  ERROR_CODE_UNSPECIFIED = 0;
+  OK = 1;
+  INVALID_PARAM = 2;
+  DATA_NOT_EXIST = 3;
+  UNKNOWN_ERROR = 4;
+}
+
+message BaseInfo {
+  ErrorCode code = 1;
+  string message = 2;
+}
+
 message HelloRequest {
   string name = 1;
 }
@@ -22,7 +35,12 @@ message EnrollTaskRequest {
   int64 task_id = 2;
 }
 
-message EnrollTaskResponse {
+message EnrollTaskData {
   int64 task_execution_progress_id = 1;
   repeated int64 task_condition_execution_progress_ids = 2;
+}
+
+message EnrollTaskResponse {
+  BaseInfo base = 1;
+  EnrollTaskData data = 2;
 }

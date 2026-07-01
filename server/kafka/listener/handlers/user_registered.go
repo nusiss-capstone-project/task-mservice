@@ -32,7 +32,7 @@ func handleUserEvent(ctx context.Context, msg *kafka.Message) error {
 	if metric == nil {
 		return fmt.Errorf("data metric not found: %s", metricCode)
 	}
-	service.GetUserTaskConditionProgressService().UpdateUserTaskConditionProgress(ctx, event.UserID, metric.ID, "true", time.Unix(int64(event.RegisterTime), 0))
+	service.GetUserTaskProgressService().UpdateUserTaskProgress(ctx, event.UserID, metric.ID, "true", time.Unix(int64(event.RegisterTime), 0))
 	return nil
 }
 

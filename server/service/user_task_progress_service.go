@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/nusiss-capstone-project/task-mservice/common/taskpb"
 	"github.com/nusiss-capstone-project/task-mservice/server/http/data"
 	"github.com/nusiss-capstone-project/task-mservice/server/kafka/producer"
 	"github.com/nusiss-capstone-project/task-mservice/server/log"
@@ -13,31 +14,48 @@ import (
 	"github.com/nusiss-capstone-project/task-mservice/server/repository/model"
 )
 
-type UserTaskConditionProgressService interface {
-	UpdateUserTaskConditionProgress(ctx context.Context, userID, metricID int, metricValue string, eventTime time.Time) error
+type UserTaskProgressService interface {
+	UpdateUserTaskProgress(ctx context.Context, userID, metricID int, metricValue string, eventTime time.Time) error
+	EnrollTask(ctx context.Context, enrollTaskRequest *taskpb.EnrollTaskRequest) (*taskpb.EnrollTaskResponse, error)
 }
 
-type taskCompletePublisher interface {
-	PublishTaskCompleted(ctx context.Context, taskID, userID int, status producer.TaskCompletionStatus) error
-}
-
-type userTaskConditionProgressServiceImpl struct {
+type userTaskProgressServiceImpl struct {
 	taskExecutionProgressDao          dao.TaskExecutionProgressDao
 	taskConditionExecutionProgressDao dao.TaskConditionExecutionProgressDao
 	taskConditionDao                  dao.TaskConditionDao
 	taskDao                           dao.TaskDao
 	metricOperatorDao                 dao.MetricOperatorDao
-	taskCompleteProducer              taskCompletePublisher
+	taskCompleteProducer              producer.TaskCompleteProducer
+}
+
+func (s *userTaskProgressServiceImpl) EnrollTask(ctx context.Context, req *taskpb.EnrollTaskRequest) (*taskpb.EnrollTaskResponse, error) {
+	userID, taskID, ok := validateEnrollTaskRequest(req)
+	if !ok {
+		return enrollTaskFail(taskpb.ErrorCode_INVALID_PARAM, data.ErrInvalidInput), nil
+	}
+	task, err := s.taskDao.GetByID(ctx, taskID)
+	if err != nil {
+		log.Logger.Errorf("load task %d: %v", taskID, err)
+		return enrollTaskFail(taskpb.ErrorCode_UNKNOWN_ERROR, data.ErrServerError), nil
+	}
+	if task == nil {
+		return enrollTaskFail(taskpb.ErrorCode_DATA_NOT_EXIST, data.ErrTaskNotFound), nil
+	}
+	conditions, failResp := s.loadTaskConditions(ctx, taskID)
+	if failResp != nil {
+		return failResp, nil
+	}
+	return s.createEnrollment(ctx, userID, taskID, conditions), nil
 }
 
 var (
-	userTaskConditionProgressServiceOnce sync.Once
-	userTaskConditionProgressServiceInst UserTaskConditionProgressService
+	userTaskProgressServiceOnce sync.Once
+	userTaskProgressServiceInst UserTaskProgressService
 )
 
-func GetUserTaskConditionProgressService() UserTaskConditionProgressService {
-	userTaskConditionProgressServiceOnce.Do(func() {
-		userTaskConditionProgressServiceInst = &userTaskConditionProgressServiceImpl{
+func GetUserTaskProgressService() UserTaskProgressService {
+	userTaskProgressServiceOnce.Do(func() {
+		userTaskProgressServiceInst = &userTaskProgressServiceImpl{
 			taskExecutionProgressDao:          dao.GetTaskExecutionProgressDao(),
 			taskConditionExecutionProgressDao: dao.GetTaskConditionExecutionProgressDao(),
 			taskConditionDao:                  dao.GetTaskConditionDao(),
@@ -46,10 +64,10 @@ func GetUserTaskConditionProgressService() UserTaskConditionProgressService {
 			taskCompleteProducer:              producer.GetTaskCompleteProducer(),
 		}
 	})
-	return userTaskConditionProgressServiceInst
+	return userTaskProgressServiceInst
 }
 
-func (s *userTaskConditionProgressServiceImpl) UpdateUserTaskConditionProgress(
+func (s *userTaskProgressServiceImpl) UpdateUserTaskProgress(
 	ctx context.Context,
 	userID, metricID int,
 	metricValue string,
@@ -73,7 +91,7 @@ func (s *userTaskConditionProgressServiceImpl) UpdateUserTaskConditionProgress(
 	return nil
 }
 
-func (s *userTaskConditionProgressServiceImpl) loadInProgressConditionProgresses(
+func (s *userTaskProgressServiceImpl) loadInProgressConditionProgresses(
 	ctx context.Context,
 	userID, metricID int,
 ) ([]model.TaskConditionExecutionProgress, error) {
@@ -85,7 +103,7 @@ func (s *userTaskConditionProgressServiceImpl) loadInProgressConditionProgresses
 	return progresses, nil
 }
 
-func (s *userTaskConditionProgressServiceImpl) processConditionProgress(
+func (s *userTaskProgressServiceImpl) processConditionProgress(
 	ctx context.Context,
 	progress model.TaskConditionExecutionProgress,
 	metricValue string,
@@ -132,7 +150,7 @@ func (s *userTaskConditionProgressServiceImpl) processConditionProgress(
 	return s.tryCompleteTaskExecution(ctx, progress.TaskExecutionProgressID, progress.TaskID, progress.UserID)
 }
 
-func (s *userTaskConditionProgressServiceImpl) loadTaskCondition(ctx context.Context, conditionID int) (*model.TaskCondition, error) {
+func (s *userTaskProgressServiceImpl) loadTaskCondition(ctx context.Context, conditionID int) (*model.TaskCondition, error) {
 	condition, err := s.taskConditionDao.GetByID(ctx, conditionID)
 	if err != nil {
 		log.Logger.Errorf("load task condition %d: %v", conditionID, err)
@@ -145,7 +163,7 @@ func (s *userTaskConditionProgressServiceImpl) loadTaskCondition(ctx context.Con
 	return condition, nil
 }
 
-func (s *userTaskConditionProgressServiceImpl) loadMetricOperator(ctx context.Context, operatorID int) (*model.MetricOperator, error) {
+func (s *userTaskProgressServiceImpl) loadMetricOperator(ctx context.Context, operatorID int) (*model.MetricOperator, error) {
 	operator, err := s.metricOperatorDao.GetByID(ctx, operatorID)
 	if err != nil {
 		log.Logger.Errorf("load metric operator %d: %v", operatorID, err)
@@ -165,7 +183,7 @@ func formatEventTime(t *time.Time) string {
 	return t.Format(time.RFC3339Nano)
 }
 
-func (s *userTaskConditionProgressServiceImpl) updateConditionCurrentValue(
+func (s *userTaskProgressServiceImpl) updateConditionCurrentValue(
 	ctx context.Context,
 	progressID int,
 	metricValue string,
@@ -184,7 +202,7 @@ func (s *userTaskConditionProgressServiceImpl) updateConditionCurrentValue(
 	return nil
 }
 
-func (s *userTaskConditionProgressServiceImpl) markConditionProgressComplete(
+func (s *userTaskProgressServiceImpl) markConditionProgressComplete(
 	ctx context.Context,
 	progressID int,
 	metricValue string,
@@ -205,7 +223,7 @@ func (s *userTaskConditionProgressServiceImpl) markConditionProgressComplete(
 	return updated, nil
 }
 
-func (s *userTaskConditionProgressServiceImpl) tryCompleteTaskExecution(
+func (s *userTaskProgressServiceImpl) tryCompleteTaskExecution(
 	ctx context.Context,
 	taskExecutionProgressID, taskID, userID int,
 ) error {
@@ -248,7 +266,7 @@ func (s *userTaskConditionProgressServiceImpl) tryCompleteTaskExecution(
 	return s.markTaskExecutionCompleteAndPublish(ctx, taskExecutionProgressID, taskID, userID)
 }
 
-func (s *userTaskConditionProgressServiceImpl) loadTask(ctx context.Context, taskID int) (*model.Task, error) {
+func (s *userTaskProgressServiceImpl) loadTask(ctx context.Context, taskID int) (*model.Task, error) {
 	task, err := s.taskDao.GetByID(ctx, taskID)
 	if err != nil {
 		log.Logger.Errorf("load task %d: %v", taskID, err)
@@ -261,7 +279,7 @@ func (s *userTaskConditionProgressServiceImpl) loadTask(ctx context.Context, tas
 	return task, nil
 }
 
-func (s *userTaskConditionProgressServiceImpl) markTaskExecutionCompleteAndPublish(
+func (s *userTaskProgressServiceImpl) markTaskExecutionCompleteAndPublish(
 	ctx context.Context,
 	taskExecutionProgressID, taskID, userID int,
 ) error {

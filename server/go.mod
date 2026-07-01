@@ -3,9 +3,10 @@ module github.com/nusiss-capstone-project/task-mservice/server
 go 1.25.10
 
 require (
+	github.com/expr-lang/expr v1.17.7
 	github.com/gin-contrib/cors v1.7.7
 	github.com/gin-gonic/gin v1.12.0
-	github.com/nusiss-capstone-project/task-mservice/common v0.0.1
+	github.com/nusiss-capstone-project/task-mservice/common v0.0.2-alpha.1
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.11.1
 	github.com/swaggo/files v1.0.1
@@ -39,7 +40,6 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cloudwego/base64x v0.1.6 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/expr-lang/expr v1.17.7 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.13 // indirect
 	github.com/gin-contrib/sse v1.1.1 // indirect
@@ -107,3 +107,5 @@ require (
 )
 
 replace gopkg.in/yaml.v3 => gopkg.in/yaml.v3 v3.0.1
+
+replace github.com/nusiss-capstone-project/task-mservice/common => ../common

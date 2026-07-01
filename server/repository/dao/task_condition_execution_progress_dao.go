@@ -124,5 +124,8 @@ func (d *taskConditionExecutionProgressDaoImpl) UpdateIfStatusIn(
 		log.Logger.Errorf("failed to conditionally update condition progress %d: %v", id, ret.Error)
 		return false, ret.Error
 	}
+	if ret.RowsAffected > 0 {
+		log.Logger.Infof("task condition execution progress %d updated", id)
+	}
 	return ret.RowsAffected > 0, nil
 }
