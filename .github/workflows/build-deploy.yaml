@@ -45,7 +45,7 @@ jobs:
             GITOPS_BRANCH="main"
           else
             TAG="dev-${TIMESTAMP}"
-            GITOPS_BRANCH="dev"
+            GITOPS_BRANCH="develop"
           fi
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           echo "gitops_branch=${GITOPS_BRANCH}" >> "$GITHUB_OUTPUT"
