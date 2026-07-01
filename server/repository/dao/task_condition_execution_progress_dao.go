@@ -38,10 +38,10 @@ func GetTaskConditionExecutionProgressDao() TaskConditionExecutionProgressDao {
 func (d *taskConditionExecutionProgressDaoImpl) Create(ctx context.Context, progress *model.TaskConditionExecutionProgress) (int, error) {
 	ret := d.db.WithContext(ctx).Create(progress)
 	if ret.Error != nil {
-		log.Logger.Errorf("failed to create task condition execution progress: %v", ret.Error)
+		log.WithContext(ctx).Errorf("failed to create task condition execution progress: %v", ret.Error)
 		return 0, ret.Error
 	}
-	log.Logger.Infof("task condition execution progress created with ID: %d", progress.ID)
+	log.WithContext(ctx).Infof("task condition execution progress created with ID: %d", progress.ID)
 	return progress.ID, nil
 }
 
@@ -58,13 +58,13 @@ func (d *taskConditionExecutionProgressDaoImpl) Update(ctx context.Context, prog
 			"last_event_time":             progress.LastEventTime,
 		})
 	if ret.Error != nil {
-		log.Logger.Errorf("failed to update task condition execution progress %d: %v", progress.ID, ret.Error)
+		log.WithContext(ctx).Errorf("failed to update task condition execution progress %d: %v", progress.ID, ret.Error)
 		return ret.Error
 	}
 	if ret.RowsAffected == 0 {
 		return gorm.ErrRecordNotFound
 	}
-	log.Logger.Infof("task condition execution progress %d updated", progress.ID)
+	log.WithContext(ctx).Infof("task condition execution progress %d updated", progress.ID)
 	return nil
 }
 
@@ -80,7 +80,7 @@ func (d *taskConditionExecutionProgressDaoImpl) ListInProgressByUserAndMetric(
 		Where("task_condition_execution_progress.status = ?", model.TaskConditionExecutionProgressStatusInProgress).
 		Find(&progresses)
 	if ret.Error != nil {
-		log.Logger.Errorf("failed to list in-progress condition progress for user %d metric %d: %v", userID, metricID, ret.Error)
+		log.WithContext(ctx).Errorf("failed to list in-progress condition progress for user %d metric %d: %v", userID, metricID, ret.Error)
 		return nil, ret.Error
 	}
 	return progresses, nil
@@ -96,7 +96,7 @@ func (d *taskConditionExecutionProgressDaoImpl) ListByTaskExecutionProgressID(
 		Order("id ASC").
 		Find(&progresses)
 	if ret.Error != nil {
-		log.Logger.Errorf("failed to list condition progress for execution %d: %v", taskExecutionProgressID, ret.Error)
+		log.WithContext(ctx).Errorf("failed to list condition progress for execution %d: %v", taskExecutionProgressID, ret.Error)
 		return nil, ret.Error
 	}
 	return progresses, nil
@@ -121,11 +121,11 @@ func (d *taskConditionExecutionProgressDaoImpl) UpdateIfStatusIn(
 		Where("id = ? AND status IN ? AND (last_event_time IS NULL OR last_event_time <= ?)", id, fromStatuses, eventTime).
 		Updates(updates)
 	if ret.Error != nil {
-		log.Logger.Errorf("failed to conditionally update condition progress %d: %v", id, ret.Error)
+		log.WithContext(ctx).Errorf("failed to conditionally update condition progress %d: %v", id, ret.Error)
 		return false, ret.Error
 	}
 	if ret.RowsAffected > 0 {
-		log.Logger.Infof("task condition execution progress %d updated", id)
+		log.WithContext(ctx).Infof("task condition execution progress %d updated", id)
 	}
 	return ret.RowsAffected > 0, nil
 }

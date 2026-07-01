@@ -20,11 +20,11 @@ func validateEnrollTaskRequest(req *taskpb.EnrollTaskRequest) (userID, taskID in
 func (s *userTaskProgressServiceImpl) loadTaskConditions(ctx context.Context, taskID int) ([]model.TaskCondition, *taskpb.EnrollTaskResponse) {
 	conditions, err := s.taskConditionDao.ListByTaskID(ctx, taskID)
 	if err != nil {
-		log.Logger.Errorf("list task conditions for task %d: %v", taskID, err)
+		log.WithContext(ctx).Errorf("list task conditions for task %d: %v", taskID, err)
 		return nil, enrollTaskFail(taskpb.ErrorCode_UNKNOWN_ERROR, data.ErrServerError)
 	}
 	if len(conditions) == 0 {
-		log.Logger.Errorf("task %d has no conditions", taskID)
+		log.WithContext(ctx).Errorf("task %d has no conditions", taskID)
 		return nil, enrollTaskFail(taskpb.ErrorCode_INVALID_PARAM, data.ErrAtLeastOneConditionRequired)
 	}
 	return conditions, nil
@@ -38,10 +38,10 @@ func (s *userTaskProgressServiceImpl) createEnrollment(
 	executionID, conditionProgressIDs, err := s.taskExecutionProgressDao.EnrollUserTask(ctx, userID, taskID, conditions)
 	if err != nil {
 		if isDuplicateEntryError(err) {
-			log.Logger.Infof("user %d already enrolled in task %d", userID, taskID)
+			log.WithContext(ctx).Infof("user %d already enrolled in task %d", userID, taskID)
 			return enrollTaskFail(taskpb.ErrorCode_INVALID_PARAM, data.ErrInvalidInput)
 		}
-		log.Logger.Errorf("enroll user %d task %d: %v", userID, taskID, err)
+		log.WithContext(ctx).Errorf("enroll user %d task %d: %v", userID, taskID, err)
 		return enrollTaskFail(taskpb.ErrorCode_UNKNOWN_ERROR, data.ErrServerError)
 	}
 	return enrollTaskSuccess(executionID, conditionProgressIDs)

@@ -38,10 +38,10 @@ func GetTaskExecutionProgressDao() TaskExecutionProgressDao {
 func (d *TaskExecutionProgressDaoImpl) Create(ctx context.Context, progress *model.TaskExecutionProgress) (int, error) {
 	ret := d.db.WithContext(ctx).Create(progress)
 	if ret.Error != nil {
-		log.Logger.Errorf("failed to create task execution progress: %v", ret.Error)
+		log.WithContext(ctx).Errorf("failed to create task execution progress: %v", ret.Error)
 		return 0, ret.Error
 	}
-	log.Logger.Infof("task execution progress created with ID: %d", progress.ID)
+	log.WithContext(ctx).Infof("task execution progress created with ID: %d", progress.ID)
 	return progress.ID, nil
 }
 
@@ -54,13 +54,13 @@ func (d *TaskExecutionProgressDaoImpl) Update(ctx context.Context, progress *mod
 			"status":  progress.Status,
 		})
 	if ret.Error != nil {
-		log.Logger.Errorf("failed to update task execution progress %d: %v", progress.ID, ret.Error)
+		log.WithContext(ctx).Errorf("failed to update task execution progress %d: %v", progress.ID, ret.Error)
 		return ret.Error
 	}
 	if ret.RowsAffected == 0 {
 		return gorm.ErrRecordNotFound
 	}
-	log.Logger.Infof("task execution progress %d updated", progress.ID)
+	log.WithContext(ctx).Infof("task execution progress %d updated", progress.ID)
 	return nil
 }
 
@@ -71,7 +71,7 @@ func (d *TaskExecutionProgressDaoImpl) GetByID(ctx context.Context, id int) (*mo
 		if errors.Is(ret.Error, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
-		log.Logger.Errorf("failed to get task execution progress %d: %v", id, ret.Error)
+		log.WithContext(ctx).Errorf("failed to get task execution progress %d: %v", id, ret.Error)
 		return nil, ret.Error
 	}
 	return &progress, nil
@@ -88,11 +88,11 @@ func (d *TaskExecutionProgressDaoImpl) UpdateStatusIfIn(
 		Where("id = ? AND status IN ?", id, fromStatuses).
 		Update("status", newStatus)
 	if ret.Error != nil {
-		log.Logger.Errorf("failed to conditionally update task execution progress %d: %v", id, ret.Error)
+		log.WithContext(ctx).Errorf("failed to conditionally update task execution progress %d: %v", id, ret.Error)
 		return false, ret.Error
 	}
 	if ret.RowsAffected > 0 {
-		log.Logger.Infof("task execution progress %d status updated to %s", id, newStatus)
+		log.WithContext(ctx).Infof("task execution progress %d status updated to %s", id, newStatus)
 	}
 	return ret.RowsAffected > 0, nil
 }
@@ -112,10 +112,10 @@ func (d *TaskExecutionProgressDaoImpl) EnrollUserTask(
 			Status: model.TaskExecutionProgressStatusInProgress,
 		}
 		if err := tx.Create(execution).Error; err != nil {
-			log.Logger.Errorf("failed to create task execution progress for user %d task %d: %v", userID, taskID, err)
+			log.WithContext(ctx).Errorf("failed to create task execution progress for user %d task %d: %v", userID, taskID, err)
 			return err
 		}
-		log.Logger.Infof("task execution progress created with ID: %d", execution.ID)
+		log.WithContext(ctx).Infof("task execution progress created with ID: %d", execution.ID)
 		executionID = execution.ID
 
 		for _, condition := range conditions {
@@ -128,11 +128,11 @@ func (d *TaskExecutionProgressDaoImpl) EnrollUserTask(
 				Status:                  model.TaskConditionExecutionProgressStatusInProgress,
 			}
 			if err := tx.Create(conditionProgress).Error; err != nil {
-				log.Logger.Errorf("failed to create condition progress for user %d task %d condition %d: %v",
+				log.WithContext(ctx).Errorf("failed to create condition progress for user %d task %d condition %d: %v",
 					userID, taskID, condition.ID, err)
 				return err
 			}
-			log.Logger.Infof("task condition execution progress created with ID: %d", conditionProgress.ID)
+			log.WithContext(ctx).Infof("task condition execution progress created with ID: %d", conditionProgress.ID)
 			conditionProgressIDs = append(conditionProgressIDs, conditionProgress.ID)
 		}
 		return nil

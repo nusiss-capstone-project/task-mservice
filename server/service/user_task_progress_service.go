@@ -31,11 +31,12 @@ type userTaskProgressServiceImpl struct {
 func (s *userTaskProgressServiceImpl) EnrollTask(ctx context.Context, req *taskpb.EnrollTaskRequest) (*taskpb.EnrollTaskResponse, error) {
 	userID, taskID, ok := validateEnrollTaskRequest(req)
 	if !ok {
+		log.WithContext(ctx).Errorf("invalid enroll task request: %v", req)
 		return enrollTaskFail(taskpb.ErrorCode_INVALID_PARAM, data.ErrInvalidInput), nil
 	}
 	task, err := s.taskDao.GetByID(ctx, taskID)
 	if err != nil {
-		log.Logger.Errorf("load task %d: %v", taskID, err)
+		log.WithContext(ctx).Errorf("load task %d: %v", taskID, err)
 		return enrollTaskFail(taskpb.ErrorCode_UNKNOWN_ERROR, data.ErrServerError), nil
 	}
 	if task == nil {
@@ -79,12 +80,12 @@ func (s *userTaskProgressServiceImpl) UpdateUserTaskProgress(
 
 	progresses, err := s.loadInProgressConditionProgresses(ctx, userID, metricID)
 	if err != nil {
-		log.Logger.Errorf("load in-progress condition progress user=%d metric=%d: %v", userID, metricID, err)
+		log.WithContext(ctx).Errorf("load in-progress condition progress user=%d metric=%d: %v", userID, metricID, err)
 		return err
 	}
 	for _, progress := range progresses {
 		if err := s.processConditionProgress(ctx, progress, metricValue, eventTime); err != nil {
-			log.Logger.Errorf("process condition progress user=%d metric=%d: %v", userID, metricID, err)
+			log.WithContext(ctx).Errorf("process condition progress user=%d metric=%d: %v", userID, metricID, err)
 			return err
 		}
 	}
@@ -97,7 +98,7 @@ func (s *userTaskProgressServiceImpl) loadInProgressConditionProgresses(
 ) ([]model.TaskConditionExecutionProgress, error) {
 	progresses, err := s.taskConditionExecutionProgressDao.ListInProgressByUserAndMetric(ctx, userID, metricID)
 	if err != nil {
-		log.Logger.Errorf("load in-progress condition progress user=%d metric=%d: %v", userID, metricID, err)
+		log.WithContext(ctx).Errorf("load in-progress condition progress user=%d metric=%d: %v", userID, metricID, err)
 		return nil, errors.New(data.ErrServerError)
 	}
 	return progresses, nil
@@ -110,7 +111,7 @@ func (s *userTaskProgressServiceImpl) processConditionProgress(
 	eventTime time.Time,
 ) error {
 	if isStaleEvent(eventTime, progress.LastEventTime) {
-		log.Logger.Infof("skip stale event for condition progress %d, event_time=%s last_event_time=%s",
+		log.WithContext(ctx).Infof("skip stale event for condition progress %d, event_time=%s last_event_time=%s",
 			progress.ID, eventTime.Format(time.RFC3339Nano), formatEventTime(progress.LastEventTime))
 		return nil
 	}
@@ -131,7 +132,7 @@ func (s *userTaskProgressServiceImpl) processConditionProgress(
 
 	matched, err := evaluateMetricOperator(operator.Code, metricValue, condition.ConditionValue)
 	if err != nil {
-		log.Logger.Errorf("evaluate metric operator for condition progress %d: %v", progress.ID, err)
+		log.WithContext(ctx).Errorf("evaluate metric operator for condition progress %d: %v", progress.ID, err)
 		return errors.New(data.ErrInvalidInput)
 	}
 	if !matched {
@@ -139,25 +140,25 @@ func (s *userTaskProgressServiceImpl) processConditionProgress(
 	}
 
 	if !canTransitionConditionProgressToComplete(progress.Status) {
-		log.Logger.Infof("condition progress %d not completed, ret: %s", progress.ID, progress.Status)
+		log.WithContext(ctx).Infof("condition progress %d not completed, ret: %s", progress.ID, progress.Status)
 		return nil
 	}
 	completed, err := s.markConditionProgressComplete(ctx, progress.ID, metricValue, eventTime)
 	if err != nil {
 		return err
 	}
-	log.Logger.Infof("condition progress %d completed, ret: %s", progress.ID, completed)
+	log.WithContext(ctx).Infof("condition progress %d completed, ret: %s", progress.ID, completed)
 	return s.tryCompleteTaskExecution(ctx, progress.TaskExecutionProgressID, progress.TaskID, progress.UserID)
 }
 
 func (s *userTaskProgressServiceImpl) loadTaskCondition(ctx context.Context, conditionID int) (*model.TaskCondition, error) {
 	condition, err := s.taskConditionDao.GetByID(ctx, conditionID)
 	if err != nil {
-		log.Logger.Errorf("load task condition %d: %v", conditionID, err)
+		log.WithContext(ctx).Errorf("load task condition %d: %v", conditionID, err)
 		return nil, errors.New(data.ErrServerError)
 	}
 	if condition == nil {
-		log.Logger.Errorf("task condition %d not found", conditionID)
+		log.WithContext(ctx).Errorf("task condition %d not found", conditionID)
 		return nil, errors.New(data.ErrInvalidInput)
 	}
 	return condition, nil
@@ -166,11 +167,11 @@ func (s *userTaskProgressServiceImpl) loadTaskCondition(ctx context.Context, con
 func (s *userTaskProgressServiceImpl) loadMetricOperator(ctx context.Context, operatorID int) (*model.MetricOperator, error) {
 	operator, err := s.metricOperatorDao.GetByID(ctx, operatorID)
 	if err != nil {
-		log.Logger.Errorf("load metric operator %d: %v", operatorID, err)
+		log.WithContext(ctx).Errorf("load metric operator %d: %v", operatorID, err)
 		return nil, errors.New(data.ErrServerError)
 	}
 	if operator == nil {
-		log.Logger.Errorf("metric operator %d not found", operatorID)
+		log.WithContext(ctx).Errorf("metric operator %d not found", operatorID)
 		return nil, errors.New(data.ErrInvalidInput)
 	}
 	return operator, nil
@@ -193,11 +194,11 @@ func (s *userTaskProgressServiceImpl) updateConditionCurrentValue(
 		ctx, progressID, metricValue, "", eventTime, activeConditionProgressStatuses,
 	)
 	if err != nil {
-		log.Logger.Errorf("update condition progress %d current value: %v", progressID, err)
+		log.WithContext(ctx).Errorf("update condition progress %d current value: %v", progressID, err)
 		return errors.New(data.ErrServerError)
 	}
 	if !updated {
-		log.Logger.Infof("skip current_value update for condition progress %d, status inactive or stale event", progressID)
+		log.WithContext(ctx).Infof("skip current_value update for condition progress %d, status inactive or stale event", progressID)
 	}
 	return nil
 }
@@ -217,7 +218,7 @@ func (s *userTaskProgressServiceImpl) markConditionProgressComplete(
 		conditionCompleteFromStatuses,
 	)
 	if err != nil {
-		log.Logger.Errorf("mark condition progress %d complete: %v", progressID, err)
+		log.WithContext(ctx).Errorf("mark condition progress %d complete: %v", progressID, err)
 		return false, errors.New(data.ErrServerError)
 	}
 	return updated, nil
@@ -229,7 +230,7 @@ func (s *userTaskProgressServiceImpl) tryCompleteTaskExecution(
 ) error {
 	taskExecution, err := s.taskExecutionProgressDao.GetByID(ctx, taskExecutionProgressID)
 	if err != nil {
-		log.Logger.Errorf("load task execution progress %d: %v", taskExecutionProgressID, err)
+		log.WithContext(ctx).Errorf("load task execution progress %d: %v", taskExecutionProgressID, err)
 		return errors.New(data.ErrServerError)
 	}
 	if taskExecution == nil || isTerminalTaskExecutionProgressStatus(taskExecution.Status) {
@@ -243,37 +244,37 @@ func (s *userTaskProgressServiceImpl) tryCompleteTaskExecution(
 
 	conditions, err := s.taskConditionDao.ListByTaskID(ctx, taskID)
 	if err != nil {
-		log.Logger.Errorf("list task conditions for task %d: %v", taskID, err)
+		log.WithContext(ctx).Errorf("list task conditions for task %d: %v", taskID, err)
 		return errors.New(data.ErrServerError)
 	}
 
 	conditionProgresses, err := s.taskConditionExecutionProgressDao.ListByTaskExecutionProgressID(ctx, taskExecutionProgressID)
 	if err != nil {
-		log.Logger.Errorf("list condition progress for execution %d: %v", taskExecutionProgressID, err)
+		log.WithContext(ctx).Errorf("list condition progress for execution %d: %v", taskExecutionProgressID, err)
 		return errors.New(data.ErrServerError)
 	}
 
 	completedByNo := buildConditionCompletionByNo(conditions, conditionProgresses)
 	taskCompleted, err := evaluateTaskExpression(task.ConditionExpressions, completedByNo)
 	if err != nil {
-		log.Logger.Errorf("evaluate task %d expression: %v", taskID, err)
+		log.WithContext(ctx).Errorf("evaluate task %d expression: %v", taskID, err)
 		return errors.New(data.ErrInvalidInput)
 	}
 	if !taskCompleted {
 		return nil
 	}
-	log.Logger.Infof("task %d completed, ret: %v", taskID, taskCompleted)
+	log.WithContext(ctx).Infof("task %d completed, ret: %v", taskID, taskCompleted)
 	return s.markTaskExecutionCompleteAndPublish(ctx, taskExecutionProgressID, taskID, userID)
 }
 
 func (s *userTaskProgressServiceImpl) loadTask(ctx context.Context, taskID int) (*model.Task, error) {
 	task, err := s.taskDao.GetByID(ctx, taskID)
 	if err != nil {
-		log.Logger.Errorf("load task %d: %v", taskID, err)
+		log.WithContext(ctx).Errorf("load task %d: %v", taskID, err)
 		return nil, errors.New(data.ErrServerError)
 	}
 	if task == nil {
-		log.Logger.Errorf("task %d not found", taskID)
+		log.WithContext(ctx).Errorf("task %d not found", taskID)
 		return nil, errors.New(data.ErrTaskNotFound)
 	}
 	return task, nil
@@ -290,14 +291,14 @@ func (s *userTaskProgressServiceImpl) markTaskExecutionCompleteAndPublish(
 		taskExecutionCompleteFromStatuses,
 	)
 	if err != nil {
-		log.Logger.Errorf("mark task execution progress %d complete: %v", taskExecutionProgressID, err)
+		log.WithContext(ctx).Errorf("mark task execution progress %d complete: %v", taskExecutionProgressID, err)
 		return errors.New(data.ErrServerError)
 	}
 	// to handler task_execution_progress no existing case
 	if !updated {
 		current, reloadErr := s.taskExecutionProgressDao.GetByID(ctx, taskExecutionProgressID)
 		if reloadErr != nil {
-			log.Logger.Errorf("reload task execution progress %d: %v", taskExecutionProgressID, reloadErr)
+			log.WithContext(ctx).Errorf("reload task execution progress %d: %v", taskExecutionProgressID, reloadErr)
 			return errors.New(data.ErrServerError)
 		}
 		if current == nil || current.Status != model.TaskExecutionProgressStatusComplete {
@@ -306,7 +307,7 @@ func (s *userTaskProgressServiceImpl) markTaskExecutionCompleteAndPublish(
 	}
 
 	if err := s.taskCompleteProducer.PublishTaskCompleted(ctx, taskID, userID, producer.TaskCompletionStatusCompleted); err != nil {
-		log.Logger.Errorf("publish task completed event task=%d user=%d: %v", taskID, userID, err)
+		log.WithContext(ctx).Errorf("publish task completed event task=%d user=%d: %v", taskID, userID, err)
 		return errors.New(data.ErrServerError)
 	}
 	return nil
