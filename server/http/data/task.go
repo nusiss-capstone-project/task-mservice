@@ -1,7 +1,5 @@
 package data
 
-import "time"
-
 type TaskConditionVO struct {
 	No          int    `json:"no,omitempty"`
 	MetricID    int    `json:"metric_id" binding:"required"`
@@ -16,6 +14,6 @@ type TaskVO struct {
 	Status       string            `json:"status,omitempty"`
 	Conditions   []TaskConditionVO `json:"conditions"`
 	Expression   string            `json:"expression"`
-	StartTime    *time.Time        `json:"start_time,omitempty"`
-	EndTime      *time.Time        `json:"end_time,omitempty"`
+	StartTime    *DateTime         `json:"start_time,omitempty"`
+	EndTime      *DateTime         `json:"end_time,omitempty"`
 }
