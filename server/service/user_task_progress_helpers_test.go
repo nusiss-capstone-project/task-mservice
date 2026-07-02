@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/nusiss-capstone-project/task-mservice/common/taskpb"
 	"github.com/nusiss-capstone-project/task-mservice/server/repository/model"
 )
 
@@ -73,6 +74,11 @@ func TestEvaluateTaskExpression(t *testing.T) {
 	if err != nil || ok {
 		t.Fatalf("1&3 = %v, err=%v", ok, err)
 	}
+
+	_, err = evaluateTaskExpression("", completed)
+	if err == nil {
+		t.Fatal("expected error for empty expression")
+	}
 }
 
 func TestBuildConditionCompletionByNo(t *testing.T) {
@@ -96,5 +102,27 @@ func TestTerminalStatuses(t *testing.T) {
 	}
 	if isTerminalConditionProgressStatus(model.TaskConditionExecutionProgressStatusInProgress) {
 		t.Fatal("in progress should not be terminal")
+	}
+	if !isTerminalTaskExecutionProgressStatus(model.TaskExecutionProgressStatusComplete) {
+		t.Fatal("complete task execution should be terminal")
+	}
+	if !canTransitionConditionProgressToComplete(model.TaskConditionExecutionProgressStatusInProgress) {
+		t.Fatal("in progress should allow transition to complete")
+	}
+	if canTransitionConditionProgressToComplete(model.TaskConditionExecutionProgressStatusComplete) {
+		t.Fatal("complete should not allow transition to complete")
+	}
+}
+
+func TestValidateEnrollTaskRequest(t *testing.T) {
+	userID, taskID, ok := validateEnrollTaskRequest(&taskpb.EnrollTaskRequest{UserId: 1, TaskId: 2})
+	if !ok || userID != 1 || taskID != 2 {
+		t.Fatalf("unexpected result: ok=%v user=%d task=%d", ok, userID, taskID)
+	}
+	if _, _, ok := validateEnrollTaskRequest(nil); ok {
+		t.Fatal("nil request should be invalid")
+	}
+	if _, _, ok := validateEnrollTaskRequest(&taskpb.EnrollTaskRequest{UserId: 0, TaskId: 1}); ok {
+		t.Fatal("zero user id should be invalid")
 	}
 }

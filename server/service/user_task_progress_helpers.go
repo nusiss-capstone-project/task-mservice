@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/expr-lang/expr"
+	"github.com/nusiss-capstone-project/task-mservice/common/taskpb"
 	"github.com/nusiss-capstone-project/task-mservice/server/repository/model"
 )
 
@@ -25,6 +26,55 @@ var (
 		model.TaskExecutionProgressStatusInProgress,
 	}
 )
+
+func validateEnrollTaskRequest(req *taskpb.EnrollTaskRequest) (userID, taskID int, ok bool) {
+	if req == nil || req.GetUserId() <= 0 || req.GetTaskId() <= 0 {
+		return 0, 0, false
+	}
+	return int(req.GetUserId()), int(req.GetTaskId()), true
+}
+
+func enrollTaskBase(code taskpb.ErrorCode, message string) *taskpb.BaseInfo {
+	return &taskpb.BaseInfo{
+		Code:    code,
+		Message: message,
+	}
+}
+
+func enrollTaskSuccess(executionID int, conditionProgressIDs []int) *taskpb.EnrollTaskResponse {
+	return &taskpb.EnrollTaskResponse{
+		Base: enrollTaskBase(taskpb.ErrorCode_OK, "ok"),
+		Data: &taskpb.EnrollTaskData{
+			TaskExecutionProgressId:           int64(executionID),
+			TaskConditionExecutionProgressIds: toInt64Slice(conditionProgressIDs),
+		},
+	}
+}
+
+func enrollTaskFail(code taskpb.ErrorCode, message string) *taskpb.EnrollTaskResponse {
+	return &taskpb.EnrollTaskResponse{
+		Base: enrollTaskBase(code, message),
+	}
+}
+
+func isDuplicateEntryError(err error) bool {
+	return strings.Contains(err.Error(), "Duplicate entry")
+}
+
+func toInt64Slice(values []int) []int64 {
+	result := make([]int64, len(values))
+	for i, v := range values {
+		result[i] = int64(v)
+	}
+	return result
+}
+
+func formatEventTime(t *time.Time) string {
+	if t == nil || t.IsZero() {
+		return ""
+	}
+	return t.Format(time.RFC3339Nano)
+}
 
 func isStaleEvent(eventTime time.Time, lastEventTime *time.Time) bool {
 	if lastEventTime == nil || lastEventTime.IsZero() {
@@ -83,7 +133,6 @@ func evaluateTaskExpression(expression string, completedByNo map[int]bool) (bool
 		return false, fmt.Errorf("task expression is empty")
 	}
 
-
 	env := make(map[string]any)
 	var replaceErr error
 	normalized := conditionNumberPattern.ReplaceAllStringFunc(exprStr, func(token string) string {
@@ -135,4 +184,82 @@ func normalizeLogicalOperators(expr string) string {
 	expr = strings.ReplaceAll(expr, "&", "&&")
 	expr = strings.ReplaceAll(expr, "\x01", "&&")
 	return expr
+}
+
+type metricOperatorFunc func(currentValue, targetValue string) (bool, error)
+
+var metricOperatorEvaluators = map[string]metricOperatorFunc{
+	"eq":     evalEq,
+	"neq":    evalNeq,
+	"gt":     numericOp(func(a, b float64) bool { return a > b }),
+	"lt":     numericOp(func(a, b float64) bool { return a < b }),
+	"ge":     numericOp(func(a, b float64) bool { return a >= b }),
+	"le":     numericOp(func(a, b float64) bool { return a <= b }),
+	"in":     evalIn,
+	"not_in": evalNotIn,
+}
+
+func evaluateMetricOperator(operatorCode, currentValue, targetValue string) (bool, error) {
+	eval, ok := metricOperatorEvaluators[operatorCode]
+	if !ok {
+		return false, fmt.Errorf("unsupported operator code %q", operatorCode)
+	}
+	return eval(currentValue, targetValue)
+}
+
+func evalEq(currentValue, targetValue string) (bool, error) {
+	return currentValue == targetValue, nil
+}
+
+func evalNeq(currentValue, targetValue string) (bool, error) {
+	return currentValue != targetValue, nil
+}
+
+func numericOp(cmp func(float64, float64) bool) metricOperatorFunc {
+	return func(currentValue, targetValue string) (bool, error) {
+		current, err := parseFloatValue(currentValue)
+		if err != nil {
+			return false, fmt.Errorf("parse current value %q: %w", currentValue, err)
+		}
+		target, err := parseFloatValue(targetValue)
+		if err != nil {
+			return false, fmt.Errorf("parse target value %q: %w", targetValue, err)
+		}
+		return cmp(current, target), nil
+	}
+}
+
+func parseFloatValue(value string) (float64, error) {
+	return strconv.ParseFloat(strings.TrimSpace(value), 64)
+}
+
+func parseTargetList(targetValue string) []string {
+	parts := strings.Split(targetValue, ",")
+	result := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		result = append(result, part)
+	}
+	return result
+}
+
+func evalIn(currentValue, targetValue string) (bool, error) {
+	for _, item := range parseTargetList(targetValue) {
+		if currentValue == item {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func evalNotIn(currentValue, targetValue string) (bool, error) {
+	for _, item := range parseTargetList(targetValue) {
+		if currentValue == item {
+			return false, nil
+		}
+	}
+	return true, nil
 }

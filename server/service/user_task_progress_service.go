@@ -28,6 +28,25 @@ type userTaskProgressServiceImpl struct {
 	taskCompleteProducer              producer.TaskCompleteProducer
 }
 
+var (
+	userTaskProgressServiceOnce sync.Once
+	userTaskProgressServiceInst UserTaskProgressService
+)
+
+func GetUserTaskProgressService() UserTaskProgressService {
+	userTaskProgressServiceOnce.Do(func() {
+		userTaskProgressServiceInst = &userTaskProgressServiceImpl{
+			taskExecutionProgressDao:          dao.GetTaskExecutionProgressDao(),
+			taskConditionExecutionProgressDao: dao.GetTaskConditionExecutionProgressDao(),
+			taskConditionDao:                  dao.GetTaskConditionDao(),
+			taskDao:                           dao.GetTaskDao(),
+			metricOperatorDao:                 dao.GetMetricOperatorDao(),
+			taskCompleteProducer:              producer.GetTaskCompleteProducer(),
+		}
+	})
+	return userTaskProgressServiceInst
+}
+
 func (s *userTaskProgressServiceImpl) EnrollTask(ctx context.Context, req *taskpb.EnrollTaskRequest) (*taskpb.EnrollTaskResponse, error) {
 	userID, taskID, ok := validateEnrollTaskRequest(req)
 	if !ok {
@@ -47,25 +66,6 @@ func (s *userTaskProgressServiceImpl) EnrollTask(ctx context.Context, req *taskp
 		return failResp, nil
 	}
 	return s.createEnrollment(ctx, userID, taskID, conditions), nil
-}
-
-var (
-	userTaskProgressServiceOnce sync.Once
-	userTaskProgressServiceInst UserTaskProgressService
-)
-
-func GetUserTaskProgressService() UserTaskProgressService {
-	userTaskProgressServiceOnce.Do(func() {
-		userTaskProgressServiceInst = &userTaskProgressServiceImpl{
-			taskExecutionProgressDao:          dao.GetTaskExecutionProgressDao(),
-			taskConditionExecutionProgressDao: dao.GetTaskConditionExecutionProgressDao(),
-			taskConditionDao:                  dao.GetTaskConditionDao(),
-			taskDao:                           dao.GetTaskDao(),
-			metricOperatorDao:                 dao.GetMetricOperatorDao(),
-			taskCompleteProducer:              producer.GetTaskCompleteProducer(),
-		}
-	})
-	return userTaskProgressServiceInst
 }
 
 func (s *userTaskProgressServiceImpl) UpdateUserTaskProgress(
@@ -90,6 +90,36 @@ func (s *userTaskProgressServiceImpl) UpdateUserTaskProgress(
 		}
 	}
 	return nil
+}
+
+func (s *userTaskProgressServiceImpl) loadTaskConditions(ctx context.Context, taskID int) ([]model.TaskCondition, *taskpb.EnrollTaskResponse) {
+	conditions, err := s.taskConditionDao.ListByTaskID(ctx, taskID)
+	if err != nil {
+		log.WithContext(ctx).Errorf("list task conditions for task %d: %v", taskID, err)
+		return nil, enrollTaskFail(taskpb.ErrorCode_UNKNOWN_ERROR, data.ErrServerError)
+	}
+	if len(conditions) == 0 {
+		log.WithContext(ctx).Errorf("task %d has no conditions", taskID)
+		return nil, enrollTaskFail(taskpb.ErrorCode_INVALID_PARAM, data.ErrAtLeastOneConditionRequired)
+	}
+	return conditions, nil
+}
+
+func (s *userTaskProgressServiceImpl) createEnrollment(
+	ctx context.Context,
+	userID, taskID int,
+	conditions []model.TaskCondition,
+) *taskpb.EnrollTaskResponse {
+	executionID, conditionProgressIDs, err := s.taskExecutionProgressDao.EnrollUserTask(ctx, userID, taskID, conditions)
+	if err != nil {
+		if isDuplicateEntryError(err) {
+			log.WithContext(ctx).Infof("user %d already enrolled in task %d", userID, taskID)
+			return enrollTaskFail(taskpb.ErrorCode_INVALID_PARAM, data.ErrInvalidInput)
+		}
+		log.WithContext(ctx).Errorf("enroll user %d task %d: %v", userID, taskID, err)
+		return enrollTaskFail(taskpb.ErrorCode_UNKNOWN_ERROR, data.ErrServerError)
+	}
+	return enrollTaskSuccess(executionID, conditionProgressIDs)
 }
 
 func (s *userTaskProgressServiceImpl) loadInProgressConditionProgresses(
@@ -175,13 +205,6 @@ func (s *userTaskProgressServiceImpl) loadMetricOperator(ctx context.Context, op
 		return nil, errors.New(data.ErrInvalidInput)
 	}
 	return operator, nil
-}
-
-func formatEventTime(t *time.Time) string {
-	if t == nil || t.IsZero() {
-		return ""
-	}
-	return t.Format(time.RFC3339Nano)
 }
 
 func (s *userTaskProgressServiceImpl) updateConditionCurrentValue(
