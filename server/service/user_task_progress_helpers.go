@@ -9,6 +9,7 @@ import (
 
 	"github.com/expr-lang/expr"
 	"github.com/nusiss-capstone-project/task-mservice/common/taskpb"
+	"github.com/nusiss-capstone-project/task-mservice/server/http/data"
 	"github.com/nusiss-capstone-project/task-mservice/server/repository/model"
 )
 
@@ -125,14 +126,89 @@ func buildConditionCompletionByNo(
 	return completedByNo
 }
 
-var conditionNumberPattern = regexp.MustCompile(`\d+`)
+var (
+	conditionNumberPattern   = regexp.MustCompile(`\d+`)
+	taskExpressionDSLPattern = regexp.MustCompile(`^[\d\s&|()]+$`)
+)
 
-func evaluateTaskExpression(expression string, completedByNo map[int]bool) (bool, error) {
+func resolveConditionNo(no, index int) int {
+	if no <= 0 {
+		return index + 1
+	}
+	return no
+}
+
+func conditionNosFromVO(conditions []data.TaskConditionVO) []int {
+	nos := make([]int, len(conditions))
+	for i, c := range conditions {
+		nos[i] = resolveConditionNo(c.No, i)
+	}
+	return nos
+}
+
+// ValidateTaskExpression checks DSL syntax and ensures every referenced condition no exists.
+func ValidateTaskExpression(expression string, allowedNos []int) error {
+	exprStr, _, err := parseAndValidateTaskExpressionDSL(expression, allowedNos)
+	if err != nil {
+		return err
+	}
+	completedByNo := make(map[int]bool, len(allowedNos))
+	for _, no := range allowedNos {
+		completedByNo[no] = false
+	}
+	_, err = compileAndRunTaskExpression(exprStr, completedByNo)
+	return err
+}
+
+func parseAndValidateTaskExpressionDSL(expression string, allowedNos []int) (string, map[int]struct{}, error) {
 	exprStr := strings.TrimSpace(expression)
 	if exprStr == "" {
-		return false, fmt.Errorf("task expression is empty")
+		return "", nil, fmt.Errorf("task expression is empty")
+	}
+	if !taskExpressionDSLPattern.MatchString(exprStr) {
+		return "", nil, fmt.Errorf("task expression contains invalid characters")
 	}
 
+	allowed := make(map[int]struct{}, len(allowedNos))
+	for _, no := range allowedNos {
+		if no <= 0 {
+			return "", nil, fmt.Errorf("invalid condition number %d", no)
+		}
+		allowed[no] = struct{}{}
+	}
+	if len(allowed) == 0 {
+		return "", nil, fmt.Errorf("no conditions for expression")
+	}
+
+	tokens := conditionNumberPattern.FindAllString(exprStr, -1)
+	if len(tokens) == 0 {
+		return "", nil, fmt.Errorf("task expression must reference at least one condition")
+	}
+	for _, token := range tokens {
+		no, err := strconv.Atoi(token)
+		if err != nil {
+			return "", nil, fmt.Errorf("invalid condition number %q: %w", token, err)
+		}
+		if _, ok := allowed[no]; !ok {
+			return "", nil, fmt.Errorf("condition number %d not found", no)
+		}
+	}
+	return exprStr, allowed, nil
+}
+
+func evaluateTaskExpression(expression string, completedByNo map[int]bool) (bool, error) {
+	allowedNos := make([]int, 0, len(completedByNo))
+	for no := range completedByNo {
+		allowedNos = append(allowedNos, no)
+	}
+	exprStr, _, err := parseAndValidateTaskExpressionDSL(expression, allowedNos)
+	if err != nil {
+		return false, err
+	}
+	return compileAndRunTaskExpression(exprStr, completedByNo)
+}
+
+func compileAndRunTaskExpression(exprStr string, completedByNo map[int]bool) (bool, error) {
 	env := make(map[string]any)
 	var replaceErr error
 	normalized := conditionNumberPattern.ReplaceAllStringFunc(exprStr, func(token string) string {

@@ -1,10 +1,12 @@
 package service
 
 import (
+	"reflect"
 	"testing"
 	"time"
 
 	"github.com/nusiss-capstone-project/task-mservice/common/taskpb"
+	"github.com/nusiss-capstone-project/task-mservice/server/http/data"
 	"github.com/nusiss-capstone-project/task-mservice/server/repository/model"
 )
 
@@ -78,6 +80,47 @@ func TestEvaluateTaskExpression(t *testing.T) {
 	_, err = evaluateTaskExpression("", completed)
 	if err == nil {
 		t.Fatal("expected error for empty expression")
+	}
+
+	_, err = evaluateTaskExpression("true", completed)
+	if err == nil {
+		t.Fatal("expected error for tautology literal")
+	}
+
+	_, err = evaluateTaskExpression("1 == 1", completed)
+	if err == nil {
+		t.Fatal("expected error for comparison operator")
+	}
+
+	_, err = evaluateTaskExpression("(1&99)", map[int]bool{1: false, 2: true, 3: false})
+	if err == nil {
+		t.Fatal("expected error for unknown condition number")
+	}
+}
+
+func TestValidateTaskExpression(t *testing.T) {
+	nos := []int{1, 2}
+	if err := ValidateTaskExpression("(1&2)", nos); err != nil {
+		t.Fatalf("valid expression rejected: %v", err)
+	}
+	if err := ValidateTaskExpression("true", nos); err == nil {
+		t.Fatal("expected error for true")
+	}
+	if err := ValidateTaskExpression("(1&3)", nos); err == nil {
+		t.Fatal("expected error for unknown condition no")
+	}
+	if err := ValidateTaskExpression("", nos); err == nil {
+		t.Fatal("expected error for empty expression")
+	}
+}
+
+func TestConditionNosFromVO(t *testing.T) {
+	nos := conditionNosFromVO([]data.TaskConditionVO{
+		{MetricID: 1, OperatorID: 1, MetricValue: "a"},
+		{No: 3, MetricID: 2, OperatorID: 1, MetricValue: "b"},
+	})
+	if !reflect.DeepEqual(nos, []int{1, 3}) {
+		t.Fatalf("unexpected nos: %v", nos)
 	}
 }
 

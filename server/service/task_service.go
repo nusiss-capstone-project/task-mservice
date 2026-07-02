@@ -210,6 +210,9 @@ func validateTaskInput(vo *data.TaskVO) error {
 			return errors.New(data.ErrInvalidInput)
 		}
 	}
+	if err := ValidateTaskExpression(vo.Expression, conditionNosFromVO(vo.Conditions)); err != nil {
+		return errors.New(data.ErrInvalidInput)
+	}
 	return nil
 }
 
