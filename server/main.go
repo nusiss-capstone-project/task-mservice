@@ -10,6 +10,7 @@ import (
 	"github.com/nusiss-capstone-project/task-mservice/server/config"
 	"github.com/nusiss-capstone-project/task-mservice/server/grpc"
 	"github.com/nusiss-capstone-project/task-mservice/server/http"
+	"github.com/nusiss-capstone-project/task-mservice/server/kafka/listener"
 	"github.com/nusiss-capstone-project/task-mservice/server/log"
 	"github.com/nusiss-capstone-project/task-mservice/server/repository"
 	"github.com/nusiss-capstone-project/task-mservice/server/telemetry"
@@ -33,9 +34,15 @@ func main() {
 		}
 	}()
 
+	appCtx, appCancel := context.WithCancel(context.Background())
+	defer appCancel()
+
 	go grpc.Init(sigCh)
 	go http.Init(sigCh)
+	listener.Init(appCtx)
+
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	sig := <-sigCh
+	appCancel()
 	log.Logger.Infof("Received signal: %v, shutting down...", sig)
 }

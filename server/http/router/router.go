@@ -65,6 +65,7 @@ func corsMiddleware() gin.HandlerFunc {
 		},
 		AllowHeaders: []string{
 			"Origin", "Content-Type", "Accept", "Authorization", log.RequestIDHeader,
+			"traceparent", "tracestate",
 		},
 		ExposeHeaders: []string{
 			"Content-Length", log.RequestIDHeader,

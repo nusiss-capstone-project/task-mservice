@@ -48,6 +48,10 @@ func WithContext(ctx context.Context) *zap.SugaredLogger {
 	if l, ok := ctx.Value(ctxKey{}).(*zap.SugaredLogger); ok && l != nil {
 		return l
 	}
+	traceID, spanID := traceIDs(ctx)
+	if traceID != "" {
+		return Logger.With("trace_id", traceID, "span_id", spanID)
+	}
 	return Logger
 }
 
@@ -64,10 +68,10 @@ func HTTPObservabilityMiddleware() gin.HandlerFunc {
 		durationMs := float64(time.Since(start).Microseconds()) / 1000
 		fields := requestFields(c, requestID, durationMs)
 		if len(c.Errors) > 0 {
-			Logger.Errorw("http request completed with errors", append(fields, "errors", c.Errors.String())...)
+			WithContext(c.Request.Context()).Errorw("http request completed with errors", append(fields, "errors", c.Errors.String())...)
 			return
 		}
-		Logger.Infow("http request completed", fields...)
+		WithContext(c.Request.Context()).Infow("http request completed", fields...)
 	}
 }
 
@@ -81,7 +85,7 @@ func RecoveryMiddleware() gin.HandlerFunc {
 					c.Header(RequestIDHeader, requestID)
 				}
 				fields := requestFields(c, requestID, 0)
-				Logger.Errorw("panic recovered", append(fields,
+				WithContext(c.Request.Context()).Errorw("panic recovered", append(fields,
 					"panic", fmt.Sprint(rec),
 					"stack", string(debug.Stack()),
 				)...)

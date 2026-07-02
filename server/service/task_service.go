@@ -58,8 +58,8 @@ func (s *TaskServiceImpl) CreateTask(ctx context.Context, groupID int, vo *data.
 		Name:                 vo.Name,
 		Status:               model.StatusDraft,
 		ConditionExpressions: vo.Expression,
-		StartTime:            vo.StartTime,
-		EndTime:              vo.EndTime,
+		StartTime:            vo.StartTime.TimePtr(),
+		EndTime:              vo.EndTime.TimePtr(),
 	}
 	conditions := toTaskConditions(0, vo.Conditions)
 
@@ -105,8 +105,8 @@ func (s *TaskServiceImpl) SaveTask(ctx context.Context, groupID, taskID int, vo 
 
 	task.Name = vo.Name
 	task.ConditionExpressions = vo.Expression
-	task.StartTime = vo.StartTime
-	task.EndTime = vo.EndTime
+	task.StartTime = vo.StartTime.TimePtr()
+	task.EndTime = vo.EndTime.TimePtr()
 	conditions := toTaskConditions(taskID, vo.Conditions)
 
 	if _, err := s.taskDao.Save(ctx, task); err != nil {
@@ -210,6 +210,9 @@ func validateTaskInput(vo *data.TaskVO) error {
 			return errors.New(data.ErrInvalidInput)
 		}
 	}
+	if err := ValidateTaskExpression(vo.Expression, conditionNosFromVO(vo.Conditions)); err != nil {
+		return errors.New(data.ErrInvalidInput)
+	}
 	return nil
 }
 
@@ -238,8 +241,8 @@ func (s *TaskServiceImpl) buildTaskSummary(task *model.Task) *data.TaskVO {
 		TaskGroupID: task.TaskGroupID,
 		Status:      task.Status,
 		Expression:  task.ConditionExpressions,
-		StartTime:   task.StartTime,
-		EndTime:     task.EndTime,
+		StartTime:   data.DateTimeFromPtr(task.StartTime),
+		EndTime:     data.DateTimeFromPtr(task.EndTime),
 	}
 }
 

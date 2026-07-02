@@ -17,3 +17,13 @@ system:
   - https://campaign-center-admin-web.vercel.app
   - https://finverse-web.vercel.app
   - http://localhost:3000
+
+kafka:
+  enabled: true
+  brokers:
+    - localhost:9092
+  group_id: task-mservice
+  client_id: task-mservice
+  topics:
+    - deposit.events
+    - user.events.registered

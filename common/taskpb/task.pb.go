@@ -21,6 +21,113 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type ErrorCode int32
+
+const (
+	ErrorCode_ERROR_CODE_UNSPECIFIED ErrorCode = 0
+	ErrorCode_OK                     ErrorCode = 1
+	ErrorCode_INVALID_PARAM          ErrorCode = 2
+	ErrorCode_DATA_NOT_EXIST         ErrorCode = 3
+	ErrorCode_UNKNOWN_ERROR          ErrorCode = 4
+)
+
+// Enum value maps for ErrorCode.
+var (
+	ErrorCode_name = map[int32]string{
+		0: "ERROR_CODE_UNSPECIFIED",
+		1: "OK",
+		2: "INVALID_PARAM",
+		3: "DATA_NOT_EXIST",
+		4: "UNKNOWN_ERROR",
+	}
+	ErrorCode_value = map[string]int32{
+		"ERROR_CODE_UNSPECIFIED": 0,
+		"OK":                     1,
+		"INVALID_PARAM":          2,
+		"DATA_NOT_EXIST":         3,
+		"UNKNOWN_ERROR":          4,
+	}
+)
+
+func (x ErrorCode) Enum() *ErrorCode {
+	p := new(ErrorCode)
+	*p = x
+	return p
+}
+
+func (x ErrorCode) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ErrorCode) Descriptor() protoreflect.EnumDescriptor {
+	return file_proto_task_proto_enumTypes[0].Descriptor()
+}
+
+func (ErrorCode) Type() protoreflect.EnumType {
+	return &file_proto_task_proto_enumTypes[0]
+}
+
+func (x ErrorCode) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ErrorCode.Descriptor instead.
+func (ErrorCode) EnumDescriptor() ([]byte, []int) {
+	return file_proto_task_proto_rawDescGZIP(), []int{0}
+}
+
+type BaseInfo struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          ErrorCode              `protobuf:"varint,1,opt,name=code,proto3,enum=taskpb.ErrorCode" json:"code,omitempty"`
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BaseInfo) Reset() {
+	*x = BaseInfo{}
+	mi := &file_proto_task_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BaseInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BaseInfo) ProtoMessage() {}
+
+func (x *BaseInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_task_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BaseInfo.ProtoReflect.Descriptor instead.
+func (*BaseInfo) Descriptor() ([]byte, []int) {
+	return file_proto_task_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *BaseInfo) GetCode() ErrorCode {
+	if x != nil {
+		return x.Code
+	}
+	return ErrorCode_ERROR_CODE_UNSPECIFIED
+}
+
+func (x *BaseInfo) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
 type HelloRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
@@ -30,7 +137,7 @@ type HelloRequest struct {
 
 func (x *HelloRequest) Reset() {
 	*x = HelloRequest{}
-	mi := &file_proto_task_proto_msgTypes[0]
+	mi := &file_proto_task_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -42,7 +149,7 @@ func (x *HelloRequest) String() string {
 func (*HelloRequest) ProtoMessage() {}
 
 func (x *HelloRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_task_proto_msgTypes[0]
+	mi := &file_proto_task_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -55,7 +162,7 @@ func (x *HelloRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HelloRequest.ProtoReflect.Descriptor instead.
 func (*HelloRequest) Descriptor() ([]byte, []int) {
-	return file_proto_task_proto_rawDescGZIP(), []int{0}
+	return file_proto_task_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *HelloRequest) GetName() string {
@@ -74,7 +181,7 @@ type HelloResponse struct {
 
 func (x *HelloResponse) Reset() {
 	*x = HelloResponse{}
-	mi := &file_proto_task_proto_msgTypes[1]
+	mi := &file_proto_task_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -86,7 +193,7 @@ func (x *HelloResponse) String() string {
 func (*HelloResponse) ProtoMessage() {}
 
 func (x *HelloResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_task_proto_msgTypes[1]
+	mi := &file_proto_task_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -99,7 +206,7 @@ func (x *HelloResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HelloResponse.ProtoReflect.Descriptor instead.
 func (*HelloResponse) Descriptor() ([]byte, []int) {
-	return file_proto_task_proto_rawDescGZIP(), []int{1}
+	return file_proto_task_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *HelloResponse) GetMessage() string {
@@ -109,17 +216,193 @@ func (x *HelloResponse) GetMessage() string {
 	return ""
 }
 
+type EnrollTaskRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        int64                  `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	TaskId        int64                  `protobuf:"varint,2,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EnrollTaskRequest) Reset() {
+	*x = EnrollTaskRequest{}
+	mi := &file_proto_task_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EnrollTaskRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EnrollTaskRequest) ProtoMessage() {}
+
+func (x *EnrollTaskRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_task_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EnrollTaskRequest.ProtoReflect.Descriptor instead.
+func (*EnrollTaskRequest) Descriptor() ([]byte, []int) {
+	return file_proto_task_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *EnrollTaskRequest) GetUserId() int64 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
+func (x *EnrollTaskRequest) GetTaskId() int64 {
+	if x != nil {
+		return x.TaskId
+	}
+	return 0
+}
+
+type EnrollTaskData struct {
+	state                             protoimpl.MessageState `protogen:"open.v1"`
+	TaskExecutionProgressId           int64                  `protobuf:"varint,1,opt,name=task_execution_progress_id,json=taskExecutionProgressId,proto3" json:"task_execution_progress_id,omitempty"`
+	TaskConditionExecutionProgressIds []int64                `protobuf:"varint,2,rep,packed,name=task_condition_execution_progress_ids,json=taskConditionExecutionProgressIds,proto3" json:"task_condition_execution_progress_ids,omitempty"`
+	unknownFields                     protoimpl.UnknownFields
+	sizeCache                         protoimpl.SizeCache
+}
+
+func (x *EnrollTaskData) Reset() {
+	*x = EnrollTaskData{}
+	mi := &file_proto_task_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EnrollTaskData) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EnrollTaskData) ProtoMessage() {}
+
+func (x *EnrollTaskData) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_task_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EnrollTaskData.ProtoReflect.Descriptor instead.
+func (*EnrollTaskData) Descriptor() ([]byte, []int) {
+	return file_proto_task_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *EnrollTaskData) GetTaskExecutionProgressId() int64 {
+	if x != nil {
+		return x.TaskExecutionProgressId
+	}
+	return 0
+}
+
+func (x *EnrollTaskData) GetTaskConditionExecutionProgressIds() []int64 {
+	if x != nil {
+		return x.TaskConditionExecutionProgressIds
+	}
+	return nil
+}
+
+type EnrollTaskResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Base          *BaseInfo              `protobuf:"bytes,1,opt,name=base,proto3" json:"base,omitempty"`
+	Data          *EnrollTaskData        `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EnrollTaskResponse) Reset() {
+	*x = EnrollTaskResponse{}
+	mi := &file_proto_task_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EnrollTaskResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EnrollTaskResponse) ProtoMessage() {}
+
+func (x *EnrollTaskResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_task_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EnrollTaskResponse.ProtoReflect.Descriptor instead.
+func (*EnrollTaskResponse) Descriptor() ([]byte, []int) {
+	return file_proto_task_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *EnrollTaskResponse) GetBase() *BaseInfo {
+	if x != nil {
+		return x.Base
+	}
+	return nil
+}
+
+func (x *EnrollTaskResponse) GetData() *EnrollTaskData {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
 var File_proto_task_proto protoreflect.FileDescriptor
 
 const file_proto_task_proto_rawDesc = "" +
 	"\n" +
-	"\x10proto/task.proto\x12\x06taskpb\"\"\n" +
+	"\x10proto/task.proto\x12\x06taskpb\"K\n" +
+	"\bBaseInfo\x12%\n" +
+	"\x04code\x18\x01 \x01(\x0e2\x11.taskpb.ErrorCodeR\x04code\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"\"\n" +
 	"\fHelloRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\")\n" +
 	"\rHelloResponse\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage2F\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"E\n" +
+	"\x11EnrollTaskRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\x03R\x06userId\x12\x17\n" +
+	"\atask_id\x18\x02 \x01(\x03R\x06taskId\"\x9f\x01\n" +
+	"\x0eEnrollTaskData\x12;\n" +
+	"\x1atask_execution_progress_id\x18\x01 \x01(\x03R\x17taskExecutionProgressId\x12P\n" +
+	"%task_condition_execution_progress_ids\x18\x02 \x03(\x03R!taskConditionExecutionProgressIds\"f\n" +
+	"\x12EnrollTaskResponse\x12$\n" +
+	"\x04base\x18\x01 \x01(\v2\x10.taskpb.BaseInfoR\x04base\x12*\n" +
+	"\x04data\x18\x02 \x01(\v2\x16.taskpb.EnrollTaskDataR\x04data*i\n" +
+	"\tErrorCode\x12\x1a\n" +
+	"\x16ERROR_CODE_UNSPECIFIED\x10\x00\x12\x06\n" +
+	"\x02OK\x10\x01\x12\x11\n" +
+	"\rINVALID_PARAM\x10\x02\x12\x12\n" +
+	"\x0eDATA_NOT_EXIST\x10\x03\x12\x11\n" +
+	"\rUNKNOWN_ERROR\x10\x042\x8b\x01\n" +
 	"\vTaskService\x127\n" +
-	"\bSayHello\x12\x14.taskpb.HelloRequest\x1a\x15.taskpb.HelloResponseB\x10Z\x0e/taskpb;taskpbb\x06proto3"
+	"\bSayHello\x12\x14.taskpb.HelloRequest\x1a\x15.taskpb.HelloResponse\x12C\n" +
+	"\n" +
+	"EnrollTask\x12\x19.taskpb.EnrollTaskRequest\x1a\x1a.taskpb.EnrollTaskResponseB\x10Z\x0e/taskpb;taskpbb\x06proto3"
 
 var (
 	file_proto_task_proto_rawDescOnce sync.Once
@@ -133,19 +416,30 @@ func file_proto_task_proto_rawDescGZIP() []byte {
 	return file_proto_task_proto_rawDescData
 }
 
-var file_proto_task_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_proto_task_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_proto_task_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_proto_task_proto_goTypes = []any{
-	(*HelloRequest)(nil),  // 0: taskpb.HelloRequest
-	(*HelloResponse)(nil), // 1: taskpb.HelloResponse
+	(ErrorCode)(0),             // 0: taskpb.ErrorCode
+	(*BaseInfo)(nil),           // 1: taskpb.BaseInfo
+	(*HelloRequest)(nil),       // 2: taskpb.HelloRequest
+	(*HelloResponse)(nil),      // 3: taskpb.HelloResponse
+	(*EnrollTaskRequest)(nil),  // 4: taskpb.EnrollTaskRequest
+	(*EnrollTaskData)(nil),     // 5: taskpb.EnrollTaskData
+	(*EnrollTaskResponse)(nil), // 6: taskpb.EnrollTaskResponse
 }
 var file_proto_task_proto_depIdxs = []int32{
-	0, // 0: taskpb.TaskService.SayHello:input_type -> taskpb.HelloRequest
-	1, // 1: taskpb.TaskService.SayHello:output_type -> taskpb.HelloResponse
-	1, // [1:2] is the sub-list for method output_type
-	0, // [0:1] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	0, // 0: taskpb.BaseInfo.code:type_name -> taskpb.ErrorCode
+	1, // 1: taskpb.EnrollTaskResponse.base:type_name -> taskpb.BaseInfo
+	5, // 2: taskpb.EnrollTaskResponse.data:type_name -> taskpb.EnrollTaskData
+	2, // 3: taskpb.TaskService.SayHello:input_type -> taskpb.HelloRequest
+	4, // 4: taskpb.TaskService.EnrollTask:input_type -> taskpb.EnrollTaskRequest
+	3, // 5: taskpb.TaskService.SayHello:output_type -> taskpb.HelloResponse
+	6, // 6: taskpb.TaskService.EnrollTask:output_type -> taskpb.EnrollTaskResponse
+	5, // [5:7] is the sub-list for method output_type
+	3, // [3:5] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_proto_task_proto_init() }
@@ -158,13 +452,14 @@ func file_proto_task_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_task_proto_rawDesc), len(file_proto_task_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   2,
+			NumEnums:      1,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_proto_task_proto_goTypes,
 		DependencyIndexes: file_proto_task_proto_depIdxs,
+		EnumInfos:         file_proto_task_proto_enumTypes,
 		MessageInfos:      file_proto_task_proto_msgTypes,
 	}.Build()
 	File_proto_task_proto = out.File
