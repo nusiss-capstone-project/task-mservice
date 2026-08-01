@@ -14,7 +14,7 @@ import (
 type TaskGroupDao interface {
 	Save(ctx context.Context, group *model.TaskGroup) (int, error)
 	GetByID(ctx context.Context, id int) (*model.TaskGroup, error)
-	List(ctx context.Context) ([]model.TaskGroup, error)
+	List(ctx context.Context, status string) ([]model.TaskGroup, error)
 	UpdateStatus(ctx context.Context, id int, status string) error
 }
 
@@ -57,9 +57,13 @@ func (d *TaskGroupDaoImpl) GetByID(ctx context.Context, id int) (*model.TaskGrou
 	return &group, nil
 }
 
-func (d *TaskGroupDaoImpl) List(ctx context.Context) ([]model.TaskGroup, error) {
+func (d *TaskGroupDaoImpl) List(ctx context.Context, status string) ([]model.TaskGroup, error) {
 	var groups []model.TaskGroup
-	ret := d.db.WithContext(ctx).Order("id DESC").Find(&groups)
+	query := d.db.WithContext(ctx).Order("id DESC")
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+	ret := query.Find(&groups)
 	if ret.Error != nil {
 		log.Logger.Errorf("failed to list task groups: %v", ret.Error)
 		return nil, ret.Error

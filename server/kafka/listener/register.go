@@ -14,7 +14,7 @@ const (
 
 func init() {
 	kafka.RegisterHandler(TopicDepositEvents, handleDepositEvent)
-	kafka.RegisterHandler(TopicUserRegisteredEvents, handleUserEvent)
+	kafka.RegisterHandler(TopicUserRegisteredEvents, handleUserRegisterEvent)
 }
 
 type KafkaHandler func(ctx context.Context, msg *kafka.Message) error

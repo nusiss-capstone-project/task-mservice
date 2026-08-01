@@ -15,8 +15,8 @@ import (
 
 const metricCode = "user_registered"
 
-// handleUserEvent is a stub handler for user.events.
-func handleUserEvent(ctx context.Context, msg *kafka.Message) error {
+// handleUserRegisterEvent is a stub handler for user.events.registered
+func handleUserRegisterEvent(ctx context.Context, msg *kafka.Message) error {
 	log.WithContext(ctx).Infow("user event stub handler",
 		"topic", msg.Topic,
 		"offset", msg.Offset,

@@ -16,7 +16,7 @@ import (
 // @Produce json
 // @Success 200 {object} data.BaseResponse{data=[]data.DataMetricVO}
 // @Failure 500 {object} data.BaseResponse
-// @Router /task-ms/v1/data-metrics [get]
+// @Router /task-ms/v1/admin/data-metrics [get]
 func ListDataMetrics(c *gin.Context) {
 	ret, err := service.GetReferenceService().ListDataMetrics(c.Request.Context())
 	if err != nil {
@@ -34,7 +34,7 @@ func ListDataMetrics(c *gin.Context) {
 // @Produce json
 // @Success 200 {object} data.BaseResponse{data=[]data.MetricOperatorVO}
 // @Failure 500 {object} data.BaseResponse
-// @Router /task-ms/v1/data-metric-operators [get]
+// @Router /task-ms/v1/admin/data-metric-operators [get]
 func ListDataMetricOperators(c *gin.Context) {
 	ret, err := service.GetReferenceService().ListMetricOperators(c.Request.Context())
 	if err != nil {

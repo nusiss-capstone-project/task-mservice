@@ -22,7 +22,7 @@ import (
 // @Failure 400 {object} data.BaseResponse
 // @Failure 404 {object} data.BaseResponse
 // @Failure 500 {object} data.BaseResponse
-// @Router /task-ms/v1/task-group/{task_group_id}/tasks [post]
+// @Router /task-ms/v1/admin/task-group/{task_group_id}/tasks [post]
 func CreateTask(c *gin.Context) {
 	groupID, err := parsePathID(c, "task_group_id")
 	if err != nil {
@@ -55,7 +55,7 @@ func CreateTask(c *gin.Context) {
 // @Failure 400 {object} data.BaseResponse
 // @Failure 404 {object} data.BaseResponse
 // @Failure 500 {object} data.BaseResponse
-// @Router /task-ms/v1/task-group/{task_group_id}/tasks/{task_id} [put]
+// @Router /task-ms/v1/admin/task-group/{task_group_id}/tasks/{task_id} [put]
 func SaveTask(c *gin.Context) {
 	groupID, err := parsePathID(c, "task_group_id")
 	if err != nil {
@@ -89,7 +89,7 @@ func SaveTask(c *gin.Context) {
 // @Failure 400 {object} data.BaseResponse
 // @Failure 404 {object} data.BaseResponse
 // @Failure 500 {object} data.BaseResponse
-// @Router /task-ms/v1/task-group/{task_group_id}/tasks [get]
+// @Router /task-ms/v1/admin/task-group/{task_group_id}/tasks [get]
 func ListTasksByGroup(c *gin.Context) {
 	groupID, err := parsePathID(c, "task_group_id")
 	if err != nil {
@@ -115,7 +115,7 @@ func ListTasksByGroup(c *gin.Context) {
 // @Failure 400 {object} data.BaseResponse
 // @Failure 404 {object} data.BaseResponse
 // @Failure 500 {object} data.BaseResponse
-// @Router /task-ms/v1/task-group/{task_group_id}/tasks/{task_id} [get]
+// @Router /task-ms/v1/admin/task-group/{task_group_id}/tasks/{task_id} [get]
 func GetTaskDetail(c *gin.Context) {
 	groupID, err := parsePathID(c, "task_group_id")
 	if err != nil {
@@ -150,7 +150,7 @@ func GetTaskDetail(c *gin.Context) {
 // @Failure 400 {object} data.BaseResponse
 // @Failure 404 {object} data.BaseResponse
 // @Failure 500 {object} data.BaseResponse
-// @Router /task-ms/v1/tasks/{task_id} [patch]
+// @Router /task-ms/v1/admin/tasks/{task_id} [patch]
 func PublishTask(c *gin.Context) {
 	taskID, err := parsePathID(c, "task_id")
 	if err != nil {

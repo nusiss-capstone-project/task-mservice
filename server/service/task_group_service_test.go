@@ -111,15 +111,30 @@ func TestListTaskGroups(t *testing.T) {
 	daoMock := new(mocks.TaskGroupDao)
 	svc := &TaskGroupServiceImpl{taskGroupDao: daoMock}
 
-	daoMock.On("List", mock.Anything).Return([]model.TaskGroup{
+	daoMock.On("List", mock.Anything, "").Return([]model.TaskGroup{
 		{ID: 1, Name: "G1", Status: model.StatusDraft},
 	}, nil)
 
-	got, err := svc.ListTaskGroups(context.Background())
+	got, err := svc.ListTaskGroups(context.Background(), "")
 	if err != nil {
 		t.Fatalf("ListTaskGroups() error = %v", err)
 	}
 	if len(got) != 1 || got[0].Name != "G1" {
 		t.Fatalf("unexpected list: %+v", got)
+	}
+
+	daoMock.On("List", mock.Anything, model.StatusPublished).Return([]model.TaskGroup{
+		{ID: 2, Name: "G2", Status: model.StatusPublished},
+	}, nil)
+	got, err = svc.ListTaskGroups(context.Background(), model.StatusPublished)
+	if err != nil {
+		t.Fatalf("ListTaskGroups(status) error = %v", err)
+	}
+	if len(got) != 1 || got[0].Status != model.StatusPublished {
+		t.Fatalf("unexpected filtered list: %+v", got)
+	}
+
+	if _, err := svc.ListTaskGroups(context.Background(), "INVALID"); err == nil {
+		t.Fatal("expected invalid status error")
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 
+	commonauth "github.com/nusiss-capstone-project/identity-mservice/common/auth"
 	"github.com/nusiss-capstone-project/task-mservice/server/config"
 	_ "github.com/nusiss-capstone-project/task-mservice/server/docs"
 	"github.com/nusiss-capstone-project/task-mservice/server/http/api"
@@ -27,6 +28,10 @@ func NewRouter() *gin.Engine {
 	r.Use(log.HTTPObservabilityMiddleware())
 	r.Use(corsMiddleware())
 
+	adminAuth := commonauth.RequireRole([]string{
+		commonauth.RoleCampaignOps, commonauth.RoleAdmin,
+	})
+
 	basicGroup := r.Group(serviceURIPrefix)
 	{
 		basicGroup.GET("/swagger/*any", gs.WrapHandler(
@@ -41,18 +46,22 @@ func NewRouter() *gin.Engine {
 		basicGroup.POST("/items", api.CreateItem)
 		basicGroup.GET("/items/:item_id", api.GetItems)
 
-		basicGroup.POST("/task-groups", api.SaveTaskGroup)
-		basicGroup.GET("/task-groups", api.ListTaskGroups)
-		basicGroup.PATCH("/task-groups/:task_group_id", api.PublishTaskGroup)
+		adminGroup := basicGroup.Group("/admin")
+		adminGroup.Use(adminAuth)
+		{
+			adminGroup.POST("/task-groups", api.SaveTaskGroup)
+			adminGroup.GET("/task-groups", api.ListTaskGroups)
+			adminGroup.PATCH("/task-groups/:task_group_id", api.PublishTaskGroup)
 
-		basicGroup.POST("/task-group/:task_group_id/tasks", api.CreateTask)
-		basicGroup.PUT("/task-group/:task_group_id/tasks/:task_id", api.SaveTask)
-		basicGroup.GET("/task-group/:task_group_id/tasks", api.ListTasksByGroup)
-		basicGroup.GET("/task-group/:task_group_id/tasks/:task_id", api.GetTaskDetail)
-		basicGroup.PATCH("/tasks/:task_id", api.PublishTask)
+			adminGroup.POST("/task-group/:task_group_id/tasks", api.CreateTask)
+			adminGroup.PUT("/task-group/:task_group_id/tasks/:task_id", api.SaveTask)
+			adminGroup.GET("/task-group/:task_group_id/tasks", api.ListTasksByGroup)
+			adminGroup.GET("/task-group/:task_group_id/tasks/:task_id", api.GetTaskDetail)
+			adminGroup.PATCH("/tasks/:task_id", api.PublishTask)
 
-		basicGroup.GET("/data-metrics", api.ListDataMetrics)
-		basicGroup.GET("/data-metric-operators", api.ListDataMetricOperators)
+			adminGroup.GET("/data-metrics", api.ListDataMetrics)
+			adminGroup.GET("/data-metric-operators", api.ListDataMetricOperators)
+		}
 	}
 	return r
 }
@@ -64,11 +73,12 @@ func corsMiddleware() gin.HandlerFunc {
 			"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS",
 		},
 		AllowHeaders: []string{
-			"Origin", "Content-Type", "Accept", "Authorization", log.RequestIDHeader,
+			"Origin", "Content-Type", "Accept", "Authorization",
+			commonauth.HeaderInternalUserID, commonauth.HeaderUserRole, log.RequestIDHeader,
 			"traceparent", "tracestate",
 		},
 		ExposeHeaders: []string{
-			"Content-Length", log.RequestIDHeader,
+			"Content-Length", commonauth.HeaderInternalUserID, commonauth.HeaderUserRole, log.RequestIDHeader,
 		},
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,

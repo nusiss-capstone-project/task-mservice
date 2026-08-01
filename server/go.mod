@@ -6,6 +6,7 @@ require (
 	github.com/expr-lang/expr v1.17.7
 	github.com/gin-contrib/cors v1.7.7
 	github.com/gin-gonic/gin v1.12.0
+	github.com/nusiss-capstone-project/identity-mservice/common v0.0.2-alpha.4
 	github.com/nusiss-capstone-project/task-mservice/common v0.0.2
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.11.1
