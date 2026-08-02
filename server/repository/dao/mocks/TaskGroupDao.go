@@ -24,8 +24,8 @@ func (m *TaskGroupDao) GetByID(ctx context.Context, id int) (*model.TaskGroup, e
 	return args.Get(0).(*model.TaskGroup), args.Error(1)
 }
 
-func (m *TaskGroupDao) List(ctx context.Context) ([]model.TaskGroup, error) {
-	args := m.Called(ctx)
+func (m *TaskGroupDao) List(ctx context.Context, status string) ([]model.TaskGroup, error) {
+	args := m.Called(ctx, status)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}

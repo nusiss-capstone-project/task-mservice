@@ -94,7 +94,7 @@ definitions:
 info:
   contact: {}
 paths:
-  /task-ms/v1/data-metric-operators:
+  /task-ms/v1/admin/data-metric-operators:
     get:
       description: List metric operators used for task condition configuration.
       produces:
@@ -118,7 +118,7 @@ paths:
       summary: List DataMetricOperator
       tags:
       - Reference
-  /task-ms/v1/data-metrics:
+  /task-ms/v1/admin/data-metrics:
     get:
       description: List data metrics used for task condition configuration.
       produces:
@@ -142,67 +142,7 @@ paths:
       summary: List DataMetric
       tags:
       - Reference
-  /task-ms/v1/items:
-    post:
-      consumes:
-      - application/json
-      description: Create an item record.
-      parameters:
-      - description: Item information
-        in: body
-        name: user
-        required: true
-        schema:
-          $ref: '#/definitions/data.ItemVO'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/data.BaseResponse'
-            - properties:
-                data:
-                  $ref: '#/definitions/data.ItemVO'
-              type: object
-        "400":
-          description: Bad Request
-          schema:
-            allOf:
-            - $ref: '#/definitions/data.BaseResponse'
-            - properties:
-                data:
-                  type: string
-              type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            allOf:
-            - $ref: '#/definitions/data.BaseResponse'
-            - properties:
-                data:
-                  type: string
-              type: object
-      summary: Item Create
-      tags:
-      - Item
-  /task-ms/v1/items/{item_id}:
-    get:
-      description: Get item information by item ID.
-      parameters:
-      - description: Item.ID
-        in: path
-        name: item_id
-        required: true
-        type: integer
-      responses:
-        "200":
-          description: OK
-      summary: Item Query with ID
-      tags:
-      - Item
-  /task-ms/v1/task-group/{task_group_id}/tasks:
+  /task-ms/v1/admin/task-group/{task_group_id}/tasks:
     get:
       description: List tasks belonging to a task group.
       parameters:
@@ -283,7 +223,7 @@ paths:
       summary: Create Task
       tags:
       - Task
-  /task-ms/v1/task-group/{task_group_id}/tasks/{task_id}:
+  /task-ms/v1/admin/task-group/{task_group_id}/tasks/{task_id}:
     get:
       description: Get task detail including conditions.
       parameters:
@@ -372,9 +312,14 @@ paths:
       summary: Save Task
       tags:
       - Task
-  /task-ms/v1/task-groups:
+  /task-ms/v1/admin/task-groups:
     get:
-      description: List all task groups.
+      description: 'List task groups. Optional status filter: DRAFT or PUBLISHED.'
+      parameters:
+      - description: Filter by status (DRAFT / PUBLISHED)
+        in: query
+        name: status
+        type: string
       produces:
       - application/json
       responses:
@@ -389,6 +334,18 @@ paths:
                     $ref: '#/definitions/data.TaskGroupVO'
                   type: array
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
         "500":
           description: Internal Server Error
           schema:
@@ -423,6 +380,14 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/data.BaseResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
         "404":
           description: Not Found
           schema:
@@ -434,7 +399,7 @@ paths:
       summary: Save TaskGroup
       tags:
       - TaskGroup
-  /task-ms/v1/task-groups/{task_group_id}:
+  /task-ms/v1/admin/task-groups/{task_group_id}:
     patch:
       consumes:
       - application/json
@@ -466,6 +431,14 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/data.BaseResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
         "404":
           description: Not Found
           schema:
@@ -477,7 +450,7 @@ paths:
       summary: Publish TaskGroup
       tags:
       - TaskGroup
-  /task-ms/v1/tasks/{task_id}:
+  /task-ms/v1/admin/tasks/{task_id}:
     patch:
       consumes:
       - application/json
@@ -520,4 +493,64 @@ paths:
       summary: Publish Task
       tags:
       - Task
+  /task-ms/v1/items:
+    post:
+      consumes:
+      - application/json
+      description: Create an item record.
+      parameters:
+      - description: Item information
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/data.ItemVO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/data.ItemVO'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  type: string
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  type: string
+              type: object
+      summary: Item Create
+      tags:
+      - Item
+  /task-ms/v1/items/{item_id}:
+    get:
+      description: Get item information by item ID.
+      parameters:
+      - description: Item.ID
+        in: path
+        name: item_id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+      summary: Item Query with ID
+      tags:
+      - Item
 swagger: "2.0"

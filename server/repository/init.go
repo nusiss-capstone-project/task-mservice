@@ -41,6 +41,8 @@ func Init() {
 		&model.TaskCondition{},
 		&model.DataMetric{},
 		&model.MetricOperator{},
+		&model.TaskExecutionProgress{},
+		&model.TaskConditionExecutionProgress{},
 	)
 	if err != nil {
 		panic(err)

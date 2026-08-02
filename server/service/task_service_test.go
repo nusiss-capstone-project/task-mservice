@@ -432,6 +432,20 @@ func TestValidateTaskInput(t *testing.T) {
 	if err := validateTaskInput(validTaskVO()); err != nil {
 		t.Fatalf("expected valid input, got %v", err)
 	}
+	if err := validateTaskInput(&data.TaskVO{
+		Name:       "x",
+		Expression: "true",
+		Conditions: []data.TaskConditionVO{{MetricID: 1, OperatorID: 1, MetricValue: "1"}},
+	}); err == nil {
+		t.Fatal("expected invalid expression error")
+	}
+	if err := validateTaskInput(&data.TaskVO{
+		Name:       "x",
+		Expression: "(1&99)",
+		Conditions: []data.TaskConditionVO{{MetricID: 1, OperatorID: 1, MetricValue: "1"}},
+	}); err == nil {
+		t.Fatal("expected unknown condition number error")
+	}
 }
 
 func TestToTaskConditions(t *testing.T) {

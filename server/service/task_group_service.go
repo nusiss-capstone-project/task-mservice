@@ -14,7 +14,7 @@ import (
 
 type TaskGroupService interface {
 	SaveTaskGroup(ctx context.Context, vo *data.TaskGroupVO) (*data.TaskGroupVO, error)
-	ListTaskGroups(ctx context.Context) ([]data.TaskGroupVO, error)
+	ListTaskGroups(ctx context.Context, status string) ([]data.TaskGroupVO, error)
 	PublishTaskGroup(ctx context.Context, id int) (*data.PublishStatusVO, error)
 }
 
@@ -78,8 +78,11 @@ func (s *TaskGroupServiceImpl) SaveTaskGroup(ctx context.Context, vo *data.TaskG
 	return toTaskGroupVO(group), nil
 }
 
-func (s *TaskGroupServiceImpl) ListTaskGroups(ctx context.Context) ([]data.TaskGroupVO, error) {
-	groups, err := s.taskGroupDao.List(ctx)
+func (s *TaskGroupServiceImpl) ListTaskGroups(ctx context.Context, status string) ([]data.TaskGroupVO, error) {
+	if status != "" && status != model.StatusDraft && status != model.StatusPublished {
+		return nil, errors.New(data.ErrInvalidInput)
+	}
+	groups, err := s.taskGroupDao.List(ctx, status)
 	if err != nil {
 		log.Logger.Errorf("list task groups: %v", err)
 		return nil, errors.New(data.ErrServerError)

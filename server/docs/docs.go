@@ -15,7 +15,7 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/task-ms/v1/data-metric-operators": {
+        "/task-ms/v1/admin/data-metric-operators": {
             "get": {
                 "description": "List metric operators used for task condition configuration.",
                 "produces": [
@@ -56,7 +56,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/task-ms/v1/data-metrics": {
+        "/task-ms/v1/admin/data-metrics": {
             "get": {
                 "description": "List data metrics used for task condition configuration.",
                 "produces": [
@@ -97,112 +97,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/task-ms/v1/items": {
-            "post": {
-                "description": "Create an item record.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Item"
-                ],
-                "summary": "Item Create",
-                "parameters": [
-                    {
-                        "description": "Item information",
-                        "name": "user",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/data.ItemVO"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/data.BaseResponse"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/data.ItemVO"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/data.BaseResponse"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "type": "string"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/data.BaseResponse"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "type": "string"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
-            }
-        },
-        "/task-ms/v1/items/{item_id}": {
-            "get": {
-                "description": "Get item information by item ID.",
-                "tags": [
-                    "Item"
-                ],
-                "summary": "Item Query with ID",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Item.ID",
-                        "name": "item_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK"
-                    }
-                }
-            }
-        },
-        "/task-ms/v1/task-group/{task_group_id}/tasks": {
+        "/task-ms/v1/admin/task-group/{task_group_id}/tasks": {
             "get": {
                 "description": "List tasks belonging to a task group.",
                 "produces": [
@@ -333,7 +228,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/task-ms/v1/task-group/{task_group_id}/tasks/{task_id}": {
+        "/task-ms/v1/admin/task-group/{task_group_id}/tasks/{task_id}": {
             "get": {
                 "description": "Get task detail including conditions.",
                 "produces": [
@@ -475,9 +370,9 @@ const docTemplate = `{
                 }
             }
         },
-        "/task-ms/v1/task-groups": {
+        "/task-ms/v1/admin/task-groups": {
             "get": {
-                "description": "List all task groups.",
+                "description": "List task groups. Optional status filter: DRAFT or PUBLISHED.",
                 "produces": [
                     "application/json"
                 ],
@@ -485,6 +380,14 @@ const docTemplate = `{
                     "TaskGroup"
                 ],
                 "summary": "List TaskGroup",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter by status (DRAFT / PUBLISHED)",
+                        "name": "status",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -505,6 +408,24 @@ const docTemplate = `{
                                     }
                                 }
                             ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
                         }
                     },
                     "500": {
@@ -563,6 +484,18 @@ const docTemplate = `{
                             "$ref": "#/definitions/data.BaseResponse"
                         }
                     },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -578,7 +511,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/task-ms/v1/task-groups/{task_group_id}": {
+        "/task-ms/v1/admin/task-groups/{task_group_id}": {
             "patch": {
                 "description": "Publish a draft task group.",
                 "consumes": [
@@ -633,6 +566,18 @@ const docTemplate = `{
                             "$ref": "#/definitions/data.BaseResponse"
                         }
                     },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -648,7 +593,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/task-ms/v1/tasks/{task_id}": {
+        "/task-ms/v1/admin/tasks/{task_id}": {
             "patch": {
                 "description": "Publish a draft task.",
                 "consumes": [
@@ -714,6 +659,111 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/data.BaseResponse"
                         }
+                    }
+                }
+            }
+        },
+        "/task-ms/v1/items": {
+            "post": {
+                "description": "Create an item record.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Item"
+                ],
+                "summary": "Item Create",
+                "parameters": [
+                    {
+                        "description": "Item information",
+                        "name": "user",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/data.ItemVO"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/data.BaseResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/data.ItemVO"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/data.BaseResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/data.BaseResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/task-ms/v1/items/{item_id}": {
+            "get": {
+                "description": "Get item information by item ID.",
+                "tags": [
+                    "Item"
+                ],
+                "summary": "Item Query with ID",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Item.ID",
+                        "name": "item_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
                     }
                 }
             }

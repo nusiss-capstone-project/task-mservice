@@ -20,9 +20,11 @@ import (
 // @Param body body data.TaskGroupVO true "Task group"
 // @Success 200 {object} data.BaseResponse{data=data.TaskGroupVO}
 // @Failure 400 {object} data.BaseResponse
+// @Failure 401 {object} data.BaseResponse
+// @Failure 403 {object} data.BaseResponse
 // @Failure 404 {object} data.BaseResponse
 // @Failure 500 {object} data.BaseResponse
-// @Router /task-ms/v1/task-groups [post]
+// @Router /task-ms/v1/admin/task-groups [post]
 func SaveTaskGroup(c *gin.Context) {
 	req := &data.TaskGroupVO{}
 	if err := c.ShouldBindJSON(req); err != nil {
@@ -37,19 +39,24 @@ func SaveTaskGroup(c *gin.Context) {
 	c.JSON(http.StatusOK, data.BaseResponse{Data: ret})
 }
 
-// ListTaskGroups returns all task groups.
+// ListTaskGroups returns task groups, optionally filtered by status.
 //
 // @Summary List TaskGroup
-// @Description List all task groups.
+// @Description List task groups. Optional status filter: DRAFT or PUBLISHED.
 // @Tags TaskGroup
 // @Produce json
+// @Param status query string false "Filter by status (DRAFT / PUBLISHED)"
 // @Success 200 {object} data.BaseResponse{data=[]data.TaskGroupVO}
+// @Failure 400 {object} data.BaseResponse
+// @Failure 401 {object} data.BaseResponse
+// @Failure 403 {object} data.BaseResponse
 // @Failure 500 {object} data.BaseResponse
-// @Router /task-ms/v1/task-groups [get]
+// @Router /task-ms/v1/admin/task-groups [get]
 func ListTaskGroups(c *gin.Context) {
-	ret, err := service.GetTaskGroupService().ListTaskGroups(c.Request.Context())
+	status := strings.TrimSpace(c.Query("status"))
+	ret, err := service.GetTaskGroupService().ListTaskGroups(c.Request.Context(), status)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, data.BaseResponse{ErrMsg: err.Error()})
+		writeServiceError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, data.BaseResponse{Data: ret})
@@ -66,9 +73,11 @@ func ListTaskGroups(c *gin.Context) {
 // @Param body body data.PublishStatusVO false "Publish status"
 // @Success 200 {object} data.BaseResponse{data=data.PublishStatusVO}
 // @Failure 400 {object} data.BaseResponse
+// @Failure 401 {object} data.BaseResponse
+// @Failure 403 {object} data.BaseResponse
 // @Failure 404 {object} data.BaseResponse
 // @Failure 500 {object} data.BaseResponse
-// @Router /task-ms/v1/task-groups/{task_group_id} [patch]
+// @Router /task-ms/v1/admin/task-groups/{task_group_id} [patch]
 func PublishTaskGroup(c *gin.Context) {
 	groupID, err := strconv.Atoi(c.Param("task_group_id"))
 	if err != nil || groupID <= 0 {

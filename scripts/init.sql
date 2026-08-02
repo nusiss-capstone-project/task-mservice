@@ -64,13 +64,16 @@ CREATE TABLE IF NOT EXISTS task_execution_progress (
 
 CREATE TABLE IF NOT EXISTS task_condition_execution_progress (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    execution_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    task_execution_progress_id BIGINT NOT NULL,
     task_id BIGINT NOT NULL,
-    condition_id BIGINT NOT NULL,
+    task_condition_id BIGINT NOT NULL,
     current_value VARCHAR(255) NULL,
     status VARCHAR(32) NOT NULL DEFAULT 'Init',
+    last_event_time DATETIME NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_user_id (user_id),
     INDEX idx_condition_progress_execution_id (execution_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
