@@ -220,6 +220,7 @@ type EnrollTaskRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	UserId        int64                  `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	TaskId        int64                  `protobuf:"varint,2,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	TaskGroupId   int64                  `protobuf:"varint,3,opt,name=task_group_id,json=taskGroupId,proto3" json:"task_group_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -268,10 +269,18 @@ func (x *EnrollTaskRequest) GetTaskId() int64 {
 	return 0
 }
 
+func (x *EnrollTaskRequest) GetTaskGroupId() int64 {
+	if x != nil {
+		return x.TaskGroupId
+	}
+	return 0
+}
+
 type EnrollTaskData struct {
 	state                             protoimpl.MessageState `protogen:"open.v1"`
-	TaskExecutionProgressId           int64                  `protobuf:"varint,1,opt,name=task_execution_progress_id,json=taskExecutionProgressId,proto3" json:"task_execution_progress_id,omitempty"`
-	TaskConditionExecutionProgressIds []int64                `protobuf:"varint,2,rep,packed,name=task_condition_execution_progress_ids,json=taskConditionExecutionProgressIds,proto3" json:"task_condition_execution_progress_ids,omitempty"`
+	TaskId                            int64                  `protobuf:"varint,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	TaskExecutionProgressId           int64                  `protobuf:"varint,2,opt,name=task_execution_progress_id,json=taskExecutionProgressId,proto3" json:"task_execution_progress_id,omitempty"`
+	TaskConditionExecutionProgressIds []int64                `protobuf:"varint,3,rep,packed,name=task_condition_execution_progress_ids,json=taskConditionExecutionProgressIds,proto3" json:"task_condition_execution_progress_ids,omitempty"`
 	unknownFields                     protoimpl.UnknownFields
 	sizeCache                         protoimpl.SizeCache
 }
@@ -306,6 +315,13 @@ func (*EnrollTaskData) Descriptor() ([]byte, []int) {
 	return file_proto_task_proto_rawDescGZIP(), []int{4}
 }
 
+func (x *EnrollTaskData) GetTaskId() int64 {
+	if x != nil {
+		return x.TaskId
+	}
+	return 0
+}
+
 func (x *EnrollTaskData) GetTaskExecutionProgressId() int64 {
 	if x != nil {
 		return x.TaskExecutionProgressId
@@ -323,7 +339,7 @@ func (x *EnrollTaskData) GetTaskConditionExecutionProgressIds() []int64 {
 type EnrollTaskResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Base          *BaseInfo              `protobuf:"bytes,1,opt,name=base,proto3" json:"base,omitempty"`
-	Data          *EnrollTaskData        `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
+	Data          []*EnrollTaskData      `protobuf:"bytes,2,rep,name=data,proto3" json:"data,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -365,7 +381,7 @@ func (x *EnrollTaskResponse) GetBase() *BaseInfo {
 	return nil
 }
 
-func (x *EnrollTaskResponse) GetData() *EnrollTaskData {
+func (x *EnrollTaskResponse) GetData() []*EnrollTaskData {
 	if x != nil {
 		return x.Data
 	}
@@ -383,16 +399,18 @@ const file_proto_task_proto_rawDesc = "" +
 	"\fHelloRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\")\n" +
 	"\rHelloResponse\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage\"E\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"i\n" +
 	"\x11EnrollTaskRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\x03R\x06userId\x12\x17\n" +
-	"\atask_id\x18\x02 \x01(\x03R\x06taskId\"\x9f\x01\n" +
-	"\x0eEnrollTaskData\x12;\n" +
-	"\x1atask_execution_progress_id\x18\x01 \x01(\x03R\x17taskExecutionProgressId\x12P\n" +
-	"%task_condition_execution_progress_ids\x18\x02 \x03(\x03R!taskConditionExecutionProgressIds\"f\n" +
+	"\atask_id\x18\x02 \x01(\x03R\x06taskId\x12\"\n" +
+	"\rtask_group_id\x18\x03 \x01(\x03R\vtaskGroupId\"\xb8\x01\n" +
+	"\x0eEnrollTaskData\x12\x17\n" +
+	"\atask_id\x18\x01 \x01(\x03R\x06taskId\x12;\n" +
+	"\x1atask_execution_progress_id\x18\x02 \x01(\x03R\x17taskExecutionProgressId\x12P\n" +
+	"%task_condition_execution_progress_ids\x18\x03 \x03(\x03R!taskConditionExecutionProgressIds\"f\n" +
 	"\x12EnrollTaskResponse\x12$\n" +
 	"\x04base\x18\x01 \x01(\v2\x10.taskpb.BaseInfoR\x04base\x12*\n" +
-	"\x04data\x18\x02 \x01(\v2\x16.taskpb.EnrollTaskDataR\x04data*i\n" +
+	"\x04data\x18\x02 \x03(\v2\x16.taskpb.EnrollTaskDataR\x04data*i\n" +
 	"\tErrorCode\x12\x1a\n" +
 	"\x16ERROR_CODE_UNSPECIFIED\x10\x00\x12\x06\n" +
 	"\x02OK\x10\x01\x12\x11\n" +

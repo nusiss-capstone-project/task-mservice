@@ -33,14 +33,16 @@ message HelloResponse {
 message EnrollTaskRequest {
   int64 user_id = 1;
   int64 task_id = 2;
+  int64 task_group_id = 3;
 }
 
 message EnrollTaskData {
-  int64 task_execution_progress_id = 1;
-  repeated int64 task_condition_execution_progress_ids = 2;
+  int64 task_id = 1;
+  int64 task_execution_progress_id = 2;
+  repeated int64 task_condition_execution_progress_ids = 3;
 }
 
 message EnrollTaskResponse {
   BaseInfo base = 1;
-  EnrollTaskData data = 2;
+  repeated EnrollTaskData data = 2;
 }
