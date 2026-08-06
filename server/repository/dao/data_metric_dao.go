@@ -15,6 +15,7 @@ const dataMetricCacheRefreshInterval = time.Minute
 
 type DataMetricDao interface {
 	List(ctx context.Context) ([]model.DataMetric, error)
+	GetByID(ctx context.Context, id int) (*model.DataMetric, error)
 	GetByCode(ctx context.Context, code string) (*model.DataMetric, error)
 }
 
@@ -102,6 +103,21 @@ func (d *DataMetricDaoImpl) List(ctx context.Context) ([]model.DataMetric, error
 	result := make([]model.DataMetric, len(d.cache.list))
 	copy(result, d.cache.list)
 	return result, nil
+}
+
+func (d *DataMetricDaoImpl) GetByID(ctx context.Context, id int) (*model.DataMetric, error) {
+	_ = ctx
+	if id <= 0 {
+		return nil, nil
+	}
+	d.cache.mu.RLock()
+	defer d.cache.mu.RUnlock()
+	metric, ok := d.cache.byID[id]
+	if !ok {
+		return nil, nil
+	}
+	copy := metric
+	return &copy, nil
 }
 
 func (d *DataMetricDaoImpl) GetByCode(ctx context.Context, code string) (*model.DataMetric, error) {

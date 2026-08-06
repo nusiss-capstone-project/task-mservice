@@ -347,6 +347,32 @@ func parseFloatValue(value string) (float64, error) {
 	return strconv.ParseFloat(strings.TrimSpace(value), 64)
 }
 
+const accumMetricSuffix = "_accum"
+
+func isAccumMetric(code string) bool {
+	return strings.HasSuffix(code, accumMetricSuffix)
+}
+
+// resolveMetricValue sets the incoming value, or adds it to current_value when metric code ends with _accum.
+func resolveMetricValue(metricCode, currentValue, incoming string) (string, error) {
+	if !isAccumMetric(metricCode) {
+		return incoming, nil
+	}
+	var base float64
+	if strings.TrimSpace(currentValue) != "" {
+		parsed, err := parseFloatValue(currentValue)
+		if err != nil {
+			return "", fmt.Errorf("parse current value %q: %w", currentValue, err)
+		}
+		base = parsed
+	}
+	delta, err := parseFloatValue(incoming)
+	if err != nil {
+		return "", fmt.Errorf("parse incoming value %q: %w", incoming, err)
+	}
+	return strconv.FormatFloat(base+delta, 'f', -1, 64), nil
+}
+
 func parseTargetList(targetValue string) []string {
 	parts := strings.Split(targetValue, ",")
 	result := make([]string, 0, len(parts))

@@ -10,6 +10,21 @@ import (
 	"github.com/nusiss-capstone-project/task-mservice/server/repository/model"
 )
 
+func TestResolveMetricValue(t *testing.T) {
+	got, err := resolveMetricValue("trade_amount", "20", "10")
+	if err != nil || got != "10" {
+		t.Fatalf("set mode got=%q err=%v", got, err)
+	}
+	got, err = resolveMetricValue("trade_amount_accum", "20", "10")
+	if err != nil || got != "30" {
+		t.Fatalf("accum mode got=%q err=%v", got, err)
+	}
+	got, err = resolveMetricValue("trade_count_accum", "", "1")
+	if err != nil || got != "1" {
+		t.Fatalf("accum from empty got=%q err=%v", got, err)
+	}
+}
+
 func TestIsStaleEvent(t *testing.T) {
 	lastEventTime := time.Date(2026, 1, 2, 10, 0, 0, 0, time.UTC)
 	if !isStaleEvent(lastEventTime.Add(-time.Minute), &lastEventTime) {

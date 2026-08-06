@@ -15,7 +15,10 @@ import (
 )
 
 type UserTaskProgressService interface {
-	UpdateUserTaskProgress(ctx context.Context, userID, metricID int, metricValue string, eventTime time.Time) error
+	// UpdateUserTaskProgress applies a metric event. When bizID is non-empty, (metric_code, bizID)
+	// is claimed for idempotency; duplicate claims are no-ops. Codes ending with "_accum" add to
+	// current_value; otherwise the value is set.
+	UpdateUserTaskProgress(ctx context.Context, userID, metricID int, metricValue string, eventTime time.Time, bizID string) error
 	EnrollTask(ctx context.Context, enrollTaskRequest *taskpb.EnrollTaskRequest) (*taskpb.EnrollTaskResponse, error)
 }
 
@@ -26,6 +29,8 @@ type userTaskProgressServiceImpl struct {
 	taskDao                           dao.TaskDao
 	taskGroupDao                      dao.TaskGroupDao
 	metricOperatorDao                 dao.MetricOperatorDao
+	dataMetricDao                     dao.DataMetricDao
+	metricEventDedupDao               dao.MetricEventDedupDao
 	taskCompleteProducer              producer.TaskCompleteProducer
 }
 
@@ -43,6 +48,8 @@ func GetUserTaskProgressService() UserTaskProgressService {
 			taskDao:                           dao.GetTaskDao(),
 			taskGroupDao:                      dao.GetTaskGroupDao(),
 			metricOperatorDao:                 dao.GetMetricOperatorDao(),
+			dataMetricDao:                     dao.GetDataMetricDao(),
+			metricEventDedupDao:               dao.GetMetricEventDedupDao(),
 			taskCompleteProducer:              producer.GetTaskCompleteProducer(),
 		}
 	})
@@ -124,18 +131,58 @@ func (s *userTaskProgressServiceImpl) UpdateUserTaskProgress(
 	userID, metricID int,
 	metricValue string,
 	eventTime time.Time,
+	bizID string,
 ) error {
 	if userID <= 0 || metricID <= 0 || metricValue == "" || eventTime.IsZero() {
 		return errors.New(data.ErrInvalidInput)
 	}
 
+	metric, err := s.dataMetricDao.GetByID(ctx, metricID)
+	if err != nil {
+		log.WithContext(ctx).Errorf("load data metric %d: %v", metricID, err)
+		return errors.New(data.ErrServerError)
+	}
+	if metric == nil {
+		log.WithContext(ctx).Errorf("data metric %d not found", metricID)
+		return errors.New(data.ErrInvalidInput)
+	}
+
+	claimed := false
+	if bizID != "" {
+		ok, claimErr := s.metricEventDedupDao.TryClaim(ctx, metric.Code, bizID)
+		if claimErr != nil {
+			log.WithContext(ctx).Errorf("claim metric event %s/%s: %v", metric.Code, bizID, claimErr)
+			return errors.New(data.ErrServerError)
+		}
+		if !ok {
+			log.WithContext(ctx).Infof("skip duplicate metric event %s/%s", metric.Code, bizID)
+			return nil
+		}
+		claimed = true
+	}
+
+	err = s.applyMetricToProgresses(ctx, userID, metricID, metric.Code, metricValue, eventTime)
+	if err != nil && claimed {
+		if releaseErr := s.metricEventDedupDao.Release(ctx, metric.Code, bizID); releaseErr != nil {
+			log.WithContext(ctx).Errorf("release metric event %s/%s after failure: %v", metric.Code, bizID, releaseErr)
+		}
+	}
+	return err
+}
+
+func (s *userTaskProgressServiceImpl) applyMetricToProgresses(
+	ctx context.Context,
+	userID, metricID int,
+	metricCode, metricValue string,
+	eventTime time.Time,
+) error {
 	progresses, err := s.loadInProgressConditionProgresses(ctx, userID, metricID)
 	if err != nil {
 		log.WithContext(ctx).Errorf("load in-progress condition progress user=%d metric=%d: %v", userID, metricID, err)
 		return err
 	}
 	for _, progress := range progresses {
-		if err := s.processConditionProgress(ctx, progress, metricValue, eventTime); err != nil {
+		if err := s.processConditionProgress(ctx, progress, metricCode, metricValue, eventTime); err != nil {
 			log.WithContext(ctx).Errorf("process condition progress user=%d metric=%d: %v", userID, metricID, err)
 			return err
 		}
@@ -199,7 +246,7 @@ func (s *userTaskProgressServiceImpl) loadInProgressConditionProgresses(
 func (s *userTaskProgressServiceImpl) processConditionProgress(
 	ctx context.Context,
 	progress model.TaskConditionExecutionProgress,
-	metricValue string,
+	metricCode, metricValue string,
 	eventTime time.Time,
 ) error {
 	if isStaleEvent(eventTime, progress.LastEventTime) {
@@ -213,7 +260,13 @@ func (s *userTaskProgressServiceImpl) processConditionProgress(
 		return err
 	}
 
-	if err := s.updateConditionCurrentValue(ctx, progress.ID, metricValue, eventTime); err != nil {
+	effectiveValue, err := resolveMetricValue(metricCode, progress.CurrentValue, metricValue)
+	if err != nil {
+		log.WithContext(ctx).Errorf("resolve metric value for condition progress %d: %v", progress.ID, err)
+		return errors.New(data.ErrInvalidInput)
+	}
+
+	if err := s.updateConditionCurrentValue(ctx, progress.ID, effectiveValue, eventTime); err != nil {
 		return err
 	}
 
@@ -222,7 +275,7 @@ func (s *userTaskProgressServiceImpl) processConditionProgress(
 		return err
 	}
 
-	matched, err := evaluateMetricOperator(operator.Code, metricValue, condition.ConditionValue)
+	matched, err := evaluateMetricOperator(operator.Code, effectiveValue, condition.ConditionValue)
 	if err != nil {
 		log.WithContext(ctx).Errorf("evaluate metric operator for condition progress %d: %v", progress.ID, err)
 		return errors.New(data.ErrInvalidInput)
@@ -235,7 +288,7 @@ func (s *userTaskProgressServiceImpl) processConditionProgress(
 		log.WithContext(ctx).Infof("condition progress %d not completed, ret: %s", progress.ID, progress.Status)
 		return nil
 	}
-	completed, err := s.markConditionProgressComplete(ctx, progress.ID, metricValue, eventTime)
+	completed, err := s.markConditionProgressComplete(ctx, progress.ID, effectiveValue, eventTime)
 	if err != nil {
 		return err
 	}

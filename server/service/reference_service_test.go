@@ -28,8 +28,8 @@ func TestListDataMetrics(t *testing.T) {
 
 	t.Run("success", func(t *testing.T) {
 		metricDao.On("List", mock.Anything).Return([]model.DataMetric{
-			{ID: 1, Code: "net_deposit_volume"},
-			{ID: 2, Code: "kyc_completed"},
+			{ID: 1, Code: "trade_amount_accum"},
+			{ID: 2, Code: "kyc_passed"},
 		}, nil).Once()
 
 		got, err := svc.ListDataMetrics(context.Background())
@@ -37,8 +37,8 @@ func TestListDataMetrics(t *testing.T) {
 			t.Fatalf("ListDataMetrics() error = %v", err)
 		}
 		want := []data.DataMetricVO{
-			{ID: 1, Code: "net_deposit_volume"},
-			{ID: 2, Code: "kyc_completed"},
+			{ID: 1, Code: "trade_amount_accum"},
+			{ID: 2, Code: "kyc_passed"},
 		}
 		if !reflect.DeepEqual(got, want) {
 			t.Fatalf("got %+v, want %+v", got, want)

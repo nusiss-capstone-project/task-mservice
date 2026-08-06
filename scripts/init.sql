@@ -77,13 +77,36 @@ CREATE TABLE IF NOT EXISTS task_condition_execution_progress (
     INDEX idx_condition_progress_execution_id (execution_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS metric_event_dedup (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    metric_code VARCHAR(128) NOT NULL,
+    biz_id VARCHAR(128) NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_metric_biz (metric_code, biz_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+DELETE FROM data_metric WHERE code IN (
+    'net_deposit_volume',
+    'kyc_completed',
+    'user_registered'
+);
+
 INSERT INTO data_metric (code, data_source, config) VALUES
-    ('net_deposit_volume', 'deposit.events', '{"field":"amount"}'),
-    ('kyc_completed', 'user.events', '{"event":"kyc_completed"}')
-ON DUPLICATE KEY UPDATE code = code;
+    ('kyc_passed', 'user.events.kyc_complete', '{"event":"kyc_complete","field":"kyc_status"}'),
+    ('payment_method_added', 'payment.payment_method.added', '{"event":"payment_method_added"}'),
+    ('trade_count_accum', 'asset.order.payment_result', '{"field":"count","mode":"accum"}'),
+    ('trade_amount', 'asset.order.payment_result', '{"field":"payment_amount","mode":"set"}'),
+    ('trade_amount_accum', 'asset.order.payment_result', '{"field":"payment_amount","mode":"accum"}'),
+    ('deposit_amount', 'deposit.order.payment_result', '{"field":"amount","mode":"set"}'),
+    ('deposit_amount_accum', 'deposit.order.payment_result', '{"field":"amount","mode":"accum"}')
+ON DUPLICATE KEY UPDATE
+    data_source = VALUES(data_source),
+    config = VALUES(config);
 
 INSERT INTO metric_operator (code, display) VALUES
     ('lt', 'is less than'),
     ('gt', 'is greater than'),
+    ('ge', 'is greater than or equal'),
+    ('le', 'is less than or equal'),
     ('eq', 'equals')
-ON DUPLICATE KEY UPDATE code = code;
+ON DUPLICATE KEY UPDATE display = VALUES(display);
