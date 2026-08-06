@@ -10,6 +10,7 @@ import (
 	"github.com/nusiss-capstone-project/task-mservice/common/taskpb"
 	"github.com/nusiss-capstone-project/task-mservice/server/http/data"
 	prodMocks "github.com/nusiss-capstone-project/task-mservice/server/kafka/producer/mocks"
+	"github.com/nusiss-capstone-project/task-mservice/server/repository/dao"
 	"github.com/nusiss-capstone-project/task-mservice/server/repository/dao/mocks"
 	"github.com/nusiss-capstone-project/task-mservice/server/repository/model"
 	"github.com/stretchr/testify/mock"
@@ -20,6 +21,7 @@ func newUserTaskProgressServiceTestDeps() (
 	*mocks.TaskConditionExecutionProgressDao,
 	*mocks.TaskConditionDao,
 	*mocks.TaskDao,
+	*mocks.TaskGroupDao,
 	*mocks.MetricOperatorDao,
 	*prodMocks.TaskCompleteProducer,
 	*userTaskProgressServiceImpl,
@@ -28,6 +30,7 @@ func newUserTaskProgressServiceTestDeps() (
 	condProgressDao := new(mocks.TaskConditionExecutionProgressDao)
 	condDao := new(mocks.TaskConditionDao)
 	taskDao := new(mocks.TaskDao)
+	groupDao := new(mocks.TaskGroupDao)
 	opDao := new(mocks.MetricOperatorDao)
 	producer := new(prodMocks.TaskCompleteProducer)
 	svc := &userTaskProgressServiceImpl{
@@ -35,10 +38,11 @@ func newUserTaskProgressServiceTestDeps() (
 		taskConditionExecutionProgressDao: condProgressDao,
 		taskConditionDao:                  condDao,
 		taskDao:                           taskDao,
+		taskGroupDao:                      groupDao,
 		metricOperatorDao:                 opDao,
 		taskCompleteProducer:              producer,
 	}
-	return execDao, condProgressDao, condDao, taskDao, opDao, producer, svc
+	return execDao, condProgressDao, condDao, taskDao, groupDao, opDao, producer, svc
 }
 
 func TestGetUserTaskProgressService(t *testing.T) {
@@ -55,7 +59,7 @@ func TestEnrollTask(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("invalid request", func(t *testing.T) {
-		_, _, _, _, _, _, svc := newUserTaskProgressServiceTestDeps()
+		_, _, _, _, _, _, _, svc := newUserTaskProgressServiceTestDeps()
 		resp, err := svc.EnrollTask(ctx, nil)
 		if err != nil {
 			t.Fatalf("EnrollTask() error = %v", err)
@@ -65,8 +69,19 @@ func TestEnrollTask(t *testing.T) {
 		}
 	})
 
+	t.Run("both task and group set", func(t *testing.T) {
+		_, _, _, _, _, _, _, svc := newUserTaskProgressServiceTestDeps()
+		resp, err := svc.EnrollTask(ctx, &taskpb.EnrollTaskRequest{UserId: 1, TaskId: 1, TaskGroupId: 2})
+		if err != nil {
+			t.Fatalf("EnrollTask() error = %v", err)
+		}
+		if resp.GetBase().GetCode() != taskpb.ErrorCode_INVALID_PARAM {
+			t.Fatalf("unexpected code: %v", resp.GetBase().GetCode())
+		}
+	})
+
 	t.Run("task not found", func(t *testing.T) {
-		_, _, _, taskDao, _, _, svc := newUserTaskProgressServiceTestDeps()
+		_, _, _, taskDao, _, _, _, svc := newUserTaskProgressServiceTestDeps()
 		taskDao.On("GetByID", mock.Anything, 99).Return(nil, nil)
 		resp, err := svc.EnrollTask(ctx, &taskpb.EnrollTaskRequest{UserId: 1, TaskId: 99})
 		if err != nil {
@@ -78,7 +93,7 @@ func TestEnrollTask(t *testing.T) {
 	})
 
 	t.Run("load task error", func(t *testing.T) {
-		_, _, _, taskDao, _, _, svc := newUserTaskProgressServiceTestDeps()
+		_, _, _, taskDao, _, _, _, svc := newUserTaskProgressServiceTestDeps()
 		taskDao.On("GetByID", mock.Anything, 1).Return(nil, errors.New("db down"))
 		resp, err := svc.EnrollTask(ctx, &taskpb.EnrollTaskRequest{UserId: 1, TaskId: 1})
 		if err != nil {
@@ -90,7 +105,7 @@ func TestEnrollTask(t *testing.T) {
 	})
 
 	t.Run("no conditions", func(t *testing.T) {
-		_, _, condDao, taskDao, _, _, svc := newUserTaskProgressServiceTestDeps()
+		_, _, condDao, taskDao, _, _, _, svc := newUserTaskProgressServiceTestDeps()
 		taskDao.On("GetByID", mock.Anything, 1).Return(&model.Task{ID: 1}, nil)
 		condDao.On("ListByTaskID", mock.Anything, 1).Return([]model.TaskCondition{}, nil)
 		resp, err := svc.EnrollTask(ctx, &taskpb.EnrollTaskRequest{UserId: 1, TaskId: 1})
@@ -103,11 +118,11 @@ func TestEnrollTask(t *testing.T) {
 	})
 
 	t.Run("duplicate enrollment", func(t *testing.T) {
-		execDao, _, condDao, taskDao, _, _, svc := newUserTaskProgressServiceTestDeps()
+		execDao, _, condDao, taskDao, _, _, _, svc := newUserTaskProgressServiceTestDeps()
 		conditions := []model.TaskCondition{{ID: 10, No: 1}}
 		taskDao.On("GetByID", mock.Anything, 1).Return(&model.Task{ID: 1}, nil)
 		condDao.On("ListByTaskID", mock.Anything, 1).Return(conditions, nil)
-		execDao.On("EnrollUserTask", mock.Anything, 1, 1, conditions).Return(0, nil, errors.New("Duplicate entry for key"))
+		execDao.On("EnrollUserTasks", mock.Anything, mock.Anything).Return(errors.New("Duplicate entry for key"))
 		resp, err := svc.EnrollTask(ctx, &taskpb.EnrollTaskRequest{UserId: 1, TaskId: 1})
 		if err != nil {
 			t.Fatalf("EnrollTask() error = %v", err)
@@ -117,12 +132,22 @@ func TestEnrollTask(t *testing.T) {
 		}
 	})
 
-	t.Run("success", func(t *testing.T) {
-		execDao, _, condDao, taskDao, _, _, svc := newUserTaskProgressServiceTestDeps()
+	t.Run("success single task", func(t *testing.T) {
+		execDao, _, condDao, taskDao, _, _, _, svc := newUserTaskProgressServiceTestDeps()
 		conditions := []model.TaskCondition{{ID: 10, No: 1}}
 		taskDao.On("GetByID", mock.Anything, 1).Return(&model.Task{ID: 1}, nil)
 		condDao.On("ListByTaskID", mock.Anything, 1).Return(conditions, nil)
-		execDao.On("EnrollUserTask", mock.Anything, 1, 1, conditions).Return(100, []int{201, 202}, nil)
+		execDao.On("EnrollUserTasks", mock.Anything, mock.MatchedBy(func(items []dao.EnrollProgressItem) bool {
+			if len(items) != 1 || items[0].Execution == nil {
+				return false
+			}
+			items[0].Execution.ID = 100
+			if len(items[0].Conditions) != 1 {
+				return false
+			}
+			items[0].Conditions[0].ID = 201
+			return items[0].Execution.TaskID == 1 && items[0].Execution.UserID == 1
+		})).Return(nil)
 		resp, err := svc.EnrollTask(ctx, &taskpb.EnrollTaskRequest{UserId: 1, TaskId: 1})
 		if err != nil {
 			t.Fatalf("EnrollTask() error = %v", err)
@@ -130,12 +155,73 @@ func TestEnrollTask(t *testing.T) {
 		if resp.GetBase().GetCode() != taskpb.ErrorCode_OK {
 			t.Fatalf("unexpected code: %v", resp.GetBase().GetCode())
 		}
-		if resp.GetData().GetTaskExecutionProgressId() != 100 {
-			t.Fatalf("unexpected execution id: %d", resp.GetData().GetTaskExecutionProgressId())
+		if len(resp.GetData()) != 1 {
+			t.Fatalf("unexpected data len: %d", len(resp.GetData()))
 		}
-		wantIDs := []int64{201, 202}
-		if !reflect.DeepEqual(resp.GetData().GetTaskConditionExecutionProgressIds(), wantIDs) {
-			t.Fatalf("unexpected condition progress ids: %v", resp.GetData().GetTaskConditionExecutionProgressIds())
+		got := resp.GetData()[0]
+		if got.GetTaskId() != 1 || got.GetTaskExecutionProgressId() != 100 {
+			t.Fatalf("unexpected data: %+v", got)
+		}
+		wantIDs := []int64{201}
+		if !reflect.DeepEqual(got.GetTaskConditionExecutionProgressIds(), wantIDs) {
+			t.Fatalf("unexpected condition progress ids: %v", got.GetTaskConditionExecutionProgressIds())
+		}
+	})
+
+	t.Run("group not found", func(t *testing.T) {
+		_, _, _, _, groupDao, _, _, svc := newUserTaskProgressServiceTestDeps()
+		groupDao.On("GetByID", mock.Anything, 5).Return(nil, nil)
+		resp, err := svc.EnrollTask(ctx, &taskpb.EnrollTaskRequest{UserId: 1, TaskGroupId: 5})
+		if err != nil {
+			t.Fatalf("EnrollTask() error = %v", err)
+		}
+		if resp.GetBase().GetCode() != taskpb.ErrorCode_DATA_NOT_EXIST {
+			t.Fatalf("unexpected code: %v", resp.GetBase().GetCode())
+		}
+	})
+
+	t.Run("group has no tasks", func(t *testing.T) {
+		_, _, _, taskDao, groupDao, _, _, svc := newUserTaskProgressServiceTestDeps()
+		groupDao.On("GetByID", mock.Anything, 5).Return(&model.TaskGroup{ID: 5}, nil)
+		taskDao.On("ListByGroupID", mock.Anything, 5).Return([]model.Task{}, nil)
+		resp, err := svc.EnrollTask(ctx, &taskpb.EnrollTaskRequest{UserId: 1, TaskGroupId: 5})
+		if err != nil {
+			t.Fatalf("EnrollTask() error = %v", err)
+		}
+		if resp.GetBase().GetCode() != taskpb.ErrorCode_DATA_NOT_EXIST {
+			t.Fatalf("unexpected code: %v", resp.GetBase().GetCode())
+		}
+	})
+
+	t.Run("success group enroll", func(t *testing.T) {
+		execDao, _, condDao, taskDao, groupDao, _, _, svc := newUserTaskProgressServiceTestDeps()
+		groupDao.On("GetByID", mock.Anything, 5).Return(&model.TaskGroup{ID: 5}, nil)
+		taskDao.On("ListByGroupID", mock.Anything, 5).Return([]model.Task{
+			{ID: 1}, {ID: 2},
+		}, nil)
+		condDao.On("ListByTaskIDs", mock.Anything, []int{1, 2}).Return([]model.TaskCondition{
+			{ID: 10, TaskID: 1, No: 1},
+			{ID: 20, TaskID: 2, No: 1},
+		}, nil)
+		execDao.On("EnrollUserTasks", mock.Anything, mock.MatchedBy(func(items []dao.EnrollProgressItem) bool {
+			if len(items) != 2 {
+				return false
+			}
+			items[0].Execution.ID = 100
+			items[0].Conditions[0].ID = 201
+			items[1].Execution.ID = 101
+			items[1].Conditions[0].ID = 202
+			return items[0].Execution.TaskID == 1 && items[1].Execution.TaskID == 2
+		})).Return(nil)
+		resp, err := svc.EnrollTask(ctx, &taskpb.EnrollTaskRequest{UserId: 1, TaskGroupId: 5})
+		if err != nil {
+			t.Fatalf("EnrollTask() error = %v", err)
+		}
+		if resp.GetBase().GetCode() != taskpb.ErrorCode_OK {
+			t.Fatalf("unexpected code: %v", resp.GetBase().GetCode())
+		}
+		if len(resp.GetData()) != 2 {
+			t.Fatalf("unexpected data len: %d", len(resp.GetData()))
 		}
 	})
 }
@@ -146,7 +232,7 @@ func TestUpdateUserTaskProgress(t *testing.T) {
 	eventTime := time.Date(2026, 6, 15, 12, 0, 0, 0, time.UTC)
 
 	t.Run("invalid input", func(t *testing.T) {
-		_, _, _, _, _, _, svc := newUserTaskProgressServiceTestDeps()
+		_, _, _, _, _, _, _, svc := newUserTaskProgressServiceTestDeps()
 		if err := svc.UpdateUserTaskProgress(ctx, 0, 1, "true", eventTime); err == nil {
 			t.Fatal("expected error for invalid user id")
 		}
@@ -159,7 +245,7 @@ func TestUpdateUserTaskProgress(t *testing.T) {
 	})
 
 	t.Run("load progresses error", func(t *testing.T) {
-		_, condProgressDao, _, _, _, _, svc := newUserTaskProgressServiceTestDeps()
+		_, condProgressDao, _, _, _, _, _, svc := newUserTaskProgressServiceTestDeps()
 		condProgressDao.On("ListInProgressByUserAndMetric", mock.Anything, 1, 2).Return(nil, errors.New("db down"))
 		err := svc.UpdateUserTaskProgress(ctx, 1, 2, "true", eventTime)
 		if err == nil || err.Error() != data.ErrServerError {
@@ -168,7 +254,7 @@ func TestUpdateUserTaskProgress(t *testing.T) {
 	})
 
 	t.Run("no in-progress records", func(t *testing.T) {
-		_, condProgressDao, _, _, _, _, svc := newUserTaskProgressServiceTestDeps()
+		_, condProgressDao, _, _, _, _, _, svc := newUserTaskProgressServiceTestDeps()
 		condProgressDao.On("ListInProgressByUserAndMetric", mock.Anything, 1, 2).Return([]model.TaskConditionExecutionProgress{}, nil)
 		if err := svc.UpdateUserTaskProgress(ctx, 1, 2, "true", eventTime); err != nil {
 			t.Fatalf("UpdateUserTaskProgress() error = %v", err)
@@ -176,7 +262,7 @@ func TestUpdateUserTaskProgress(t *testing.T) {
 	})
 
 	t.Run("skip stale event", func(t *testing.T) {
-		_, condProgressDao, _, _, _, _, svc := newUserTaskProgressServiceTestDeps()
+		_, condProgressDao, _, _, _, _, _, svc := newUserTaskProgressServiceTestDeps()
 		lastEvent := eventTime.Add(time.Hour)
 		progress := model.TaskConditionExecutionProgress{
 			ID: 1, TaskConditionID: 10, TaskExecutionProgressID: 50, TaskID: 5, UserID: 1,
@@ -189,7 +275,7 @@ func TestUpdateUserTaskProgress(t *testing.T) {
 	})
 
 	t.Run("condition not found", func(t *testing.T) {
-		_, condProgressDao, condDao, _, _, _, svc := newUserTaskProgressServiceTestDeps()
+		_, condProgressDao, condDao, _, _, _, _, svc := newUserTaskProgressServiceTestDeps()
 		progress := model.TaskConditionExecutionProgress{
 			ID: 1, TaskConditionID: 10, TaskExecutionProgressID: 50, TaskID: 5, UserID: 1,
 			Status: model.TaskConditionExecutionProgressStatusInProgress,
@@ -203,7 +289,7 @@ func TestUpdateUserTaskProgress(t *testing.T) {
 	})
 
 	t.Run("operator mismatch skips completion", func(t *testing.T) {
-		execDao, condProgressDao, condDao, taskDao, opDao, _, svc := newUserTaskProgressServiceTestDeps()
+		execDao, condProgressDao, condDao, taskDao, _, opDao, _, svc := newUserTaskProgressServiceTestDeps()
 		progress := model.TaskConditionExecutionProgress{
 			ID: 1, TaskConditionID: 10, TaskExecutionProgressID: 50, TaskID: 5, UserID: 1,
 			Status: model.TaskConditionExecutionProgressStatusInProgress,
@@ -224,7 +310,7 @@ func TestUpdateUserTaskProgress(t *testing.T) {
 	})
 
 	t.Run("complete task and publish", func(t *testing.T) {
-		execDao, condProgressDao, condDao, taskDao, opDao, producer, svc := newUserTaskProgressServiceTestDeps()
+		execDao, condProgressDao, condDao, taskDao, _, opDao, producer, svc := newUserTaskProgressServiceTestDeps()
 		progress := model.TaskConditionExecutionProgress{
 			ID: 1, TaskConditionID: 10, TaskExecutionProgressID: 50, TaskID: 5, UserID: 1,
 			Status: model.TaskConditionExecutionProgressStatusInProgress,
@@ -249,7 +335,7 @@ func TestUpdateUserTaskProgress(t *testing.T) {
 	})
 
 	t.Run("retry publish when already complete", func(t *testing.T) {
-		execDao, condProgressDao, condDao, taskDao, opDao, producer, svc := newUserTaskProgressServiceTestDeps()
+		execDao, condProgressDao, condDao, taskDao, _, opDao, producer, svc := newUserTaskProgressServiceTestDeps()
 		progress := model.TaskConditionExecutionProgress{
 			ID: 1, TaskConditionID: 10, TaskExecutionProgressID: 50, TaskID: 5, UserID: 1,
 			Status: model.TaskConditionExecutionProgressStatusInProgress,
@@ -274,7 +360,7 @@ func TestUpdateUserTaskProgress(t *testing.T) {
 	})
 
 	t.Run("publish error", func(t *testing.T) {
-		execDao, condProgressDao, condDao, taskDao, opDao, producer, svc := newUserTaskProgressServiceTestDeps()
+		execDao, condProgressDao, condDao, taskDao, _, opDao, producer, svc := newUserTaskProgressServiceTestDeps()
 		progress := model.TaskConditionExecutionProgress{
 			ID: 1, TaskConditionID: 10, TaskExecutionProgressID: 50, TaskID: 5, UserID: 1,
 			Status: model.TaskConditionExecutionProgressStatusInProgress,

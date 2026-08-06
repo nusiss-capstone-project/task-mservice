@@ -158,14 +158,24 @@ func TestTerminalStatuses(t *testing.T) {
 }
 
 func TestValidateEnrollTaskRequest(t *testing.T) {
-	userID, taskID, ok := validateEnrollTaskRequest(&taskpb.EnrollTaskRequest{UserId: 1, TaskId: 2})
-	if !ok || userID != 1 || taskID != 2 {
-		t.Fatalf("unexpected result: ok=%v user=%d task=%d", ok, userID, taskID)
+	userID, taskID, groupID, ok := validateEnrollTaskRequest(&taskpb.EnrollTaskRequest{UserId: 1, TaskId: 2})
+	if !ok || userID != 1 || taskID != 2 || groupID != 0 {
+		t.Fatalf("unexpected result: ok=%v user=%d task=%d group=%d", ok, userID, taskID, groupID)
 	}
-	if _, _, ok := validateEnrollTaskRequest(nil); ok {
+	userID, taskID, groupID, ok = validateEnrollTaskRequest(&taskpb.EnrollTaskRequest{UserId: 1, TaskGroupId: 3})
+	if !ok || userID != 1 || taskID != 0 || groupID != 3 {
+		t.Fatalf("unexpected group result: ok=%v user=%d task=%d group=%d", ok, userID, taskID, groupID)
+	}
+	if _, _, _, ok := validateEnrollTaskRequest(nil); ok {
 		t.Fatal("nil request should be invalid")
 	}
-	if _, _, ok := validateEnrollTaskRequest(&taskpb.EnrollTaskRequest{UserId: 0, TaskId: 1}); ok {
+	if _, _, _, ok := validateEnrollTaskRequest(&taskpb.EnrollTaskRequest{UserId: 0, TaskId: 1}); ok {
 		t.Fatal("zero user id should be invalid")
+	}
+	if _, _, _, ok := validateEnrollTaskRequest(&taskpb.EnrollTaskRequest{UserId: 1, TaskId: 1, TaskGroupId: 2}); ok {
+		t.Fatal("both task and group should be invalid")
+	}
+	if _, _, _, ok := validateEnrollTaskRequest(&taskpb.EnrollTaskRequest{UserId: 1}); ok {
+		t.Fatal("missing task and group should be invalid")
 	}
 }

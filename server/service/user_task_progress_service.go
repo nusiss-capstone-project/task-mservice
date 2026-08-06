@@ -24,6 +24,7 @@ type userTaskProgressServiceImpl struct {
 	taskConditionExecutionProgressDao dao.TaskConditionExecutionProgressDao
 	taskConditionDao                  dao.TaskConditionDao
 	taskDao                           dao.TaskDao
+	taskGroupDao                      dao.TaskGroupDao
 	metricOperatorDao                 dao.MetricOperatorDao
 	taskCompleteProducer              producer.TaskCompleteProducer
 }
@@ -40,6 +41,7 @@ func GetUserTaskProgressService() UserTaskProgressService {
 			taskConditionExecutionProgressDao: dao.GetTaskConditionExecutionProgressDao(),
 			taskConditionDao:                  dao.GetTaskConditionDao(),
 			taskDao:                           dao.GetTaskDao(),
+			taskGroupDao:                      dao.GetTaskGroupDao(),
 			metricOperatorDao:                 dao.GetMetricOperatorDao(),
 			taskCompleteProducer:              producer.GetTaskCompleteProducer(),
 		}
@@ -48,24 +50,73 @@ func GetUserTaskProgressService() UserTaskProgressService {
 }
 
 func (s *userTaskProgressServiceImpl) EnrollTask(ctx context.Context, req *taskpb.EnrollTaskRequest) (*taskpb.EnrollTaskResponse, error) {
-	userID, taskID, ok := validateEnrollTaskRequest(req)
+	userID, taskID, taskGroupID, ok := validateEnrollTaskRequest(req)
 	if !ok {
 		log.WithContext(ctx).Errorf("invalid enroll task request: %v", req)
 		return enrollTaskFail(taskpb.ErrorCode_INVALID_PARAM, data.ErrInvalidInput), nil
 	}
+	if taskGroupID > 0 {
+		return s.enrollGroup(ctx, userID, taskGroupID), nil
+	}
+	return s.enrollSingleTask(ctx, userID, taskID), nil
+}
+
+func (s *userTaskProgressServiceImpl) enrollSingleTask(ctx context.Context, userID, taskID int) *taskpb.EnrollTaskResponse {
 	task, err := s.taskDao.GetByID(ctx, taskID)
 	if err != nil {
 		log.WithContext(ctx).Errorf("load task %d: %v", taskID, err)
-		return enrollTaskFail(taskpb.ErrorCode_UNKNOWN_ERROR, data.ErrServerError), nil
+		return enrollTaskFail(taskpb.ErrorCode_UNKNOWN_ERROR, data.ErrServerError)
 	}
 	if task == nil {
-		return enrollTaskFail(taskpb.ErrorCode_DATA_NOT_EXIST, data.ErrTaskNotFound), nil
+		return enrollTaskFail(taskpb.ErrorCode_DATA_NOT_EXIST, data.ErrTaskNotFound)
 	}
 	conditions, failResp := s.loadTaskConditions(ctx, taskID)
 	if failResp != nil {
-		return failResp, nil
+		return failResp
 	}
-	return s.createEnrollment(ctx, userID, taskID, conditions), nil
+	return s.createEnrollment(ctx, []dao.EnrollProgressItem{
+		buildEnrollProgressItem(userID, taskID, conditions),
+	})
+}
+
+func (s *userTaskProgressServiceImpl) enrollGroup(ctx context.Context, userID, taskGroupID int) *taskpb.EnrollTaskResponse {
+	group, err := s.taskGroupDao.GetByID(ctx, taskGroupID)
+	if err != nil {
+		log.WithContext(ctx).Errorf("load task group %d: %v", taskGroupID, err)
+		return enrollTaskFail(taskpb.ErrorCode_UNKNOWN_ERROR, data.ErrServerError)
+	}
+	if group == nil {
+		return enrollTaskFail(taskpb.ErrorCode_DATA_NOT_EXIST, data.ErrTaskGroupNotFound)
+	}
+	tasks, err := s.taskDao.ListByGroupID(ctx, taskGroupID)
+	if err != nil {
+		log.WithContext(ctx).Errorf("list tasks for group %d: %v", taskGroupID, err)
+		return enrollTaskFail(taskpb.ErrorCode_UNKNOWN_ERROR, data.ErrServerError)
+	}
+	if len(tasks) == 0 {
+		log.WithContext(ctx).Errorf("task group %d has no tasks", taskGroupID)
+		return enrollTaskFail(taskpb.ErrorCode_DATA_NOT_EXIST, data.ErrTaskNotFound)
+	}
+
+	taskIDs := make([]int, 0, len(tasks))
+	for _, task := range tasks {
+		taskIDs = append(taskIDs, task.ID)
+	}
+	conditionsByTask, failResp := s.loadTaskConditionsByTaskIDs(ctx, taskIDs)
+	if failResp != nil {
+		return failResp
+	}
+
+	items := make([]dao.EnrollProgressItem, 0, len(tasks))
+	for _, task := range tasks {
+		conditions := conditionsByTask[task.ID]
+		if len(conditions) == 0 {
+			log.WithContext(ctx).Errorf("task %d has no conditions", task.ID)
+			return enrollTaskFail(taskpb.ErrorCode_INVALID_PARAM, data.ErrAtLeastOneConditionRequired)
+		}
+		items = append(items, buildEnrollProgressItem(userID, task.ID, conditions))
+	}
+	return s.createEnrollment(ctx, items)
 }
 
 func (s *userTaskProgressServiceImpl) UpdateUserTaskProgress(
@@ -105,21 +156,32 @@ func (s *userTaskProgressServiceImpl) loadTaskConditions(ctx context.Context, ta
 	return conditions, nil
 }
 
-func (s *userTaskProgressServiceImpl) createEnrollment(
+func (s *userTaskProgressServiceImpl) loadTaskConditionsByTaskIDs(
 	ctx context.Context,
-	userID, taskID int,
-	conditions []model.TaskCondition,
-) *taskpb.EnrollTaskResponse {
-	executionID, conditionProgressIDs, err := s.taskExecutionProgressDao.EnrollUserTask(ctx, userID, taskID, conditions)
+	taskIDs []int,
+) (map[int][]model.TaskCondition, *taskpb.EnrollTaskResponse) {
+	conditions, err := s.taskConditionDao.ListByTaskIDs(ctx, taskIDs)
 	if err != nil {
+		log.WithContext(ctx).Errorf("list task conditions for tasks %v: %v", taskIDs, err)
+		return nil, enrollTaskFail(taskpb.ErrorCode_UNKNOWN_ERROR, data.ErrServerError)
+	}
+	byTask := make(map[int][]model.TaskCondition, len(taskIDs))
+	for _, condition := range conditions {
+		byTask[condition.TaskID] = append(byTask[condition.TaskID], condition)
+	}
+	return byTask, nil
+}
+
+func (s *userTaskProgressServiceImpl) createEnrollment(ctx context.Context, items []dao.EnrollProgressItem) *taskpb.EnrollTaskResponse {
+	if err := s.taskExecutionProgressDao.EnrollUserTasks(ctx, items); err != nil {
 		if isDuplicateEntryError(err) {
-			log.WithContext(ctx).Infof("user %d already enrolled in task %d", userID, taskID)
+			log.WithContext(ctx).Infof("duplicate enrollment detected: %v", err)
 			return enrollTaskFail(taskpb.ErrorCode_INVALID_PARAM, data.ErrInvalidInput)
 		}
-		log.WithContext(ctx).Errorf("enroll user %d task %d: %v", userID, taskID, err)
+		log.WithContext(ctx).Errorf("enroll tasks: %v", err)
 		return enrollTaskFail(taskpb.ErrorCode_UNKNOWN_ERROR, data.ErrServerError)
 	}
-	return enrollTaskSuccess(executionID, conditionProgressIDs)
+	return enrollTaskSuccess(items)
 }
 
 func (s *userTaskProgressServiceImpl) loadInProgressConditionProgresses(

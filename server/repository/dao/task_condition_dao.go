@@ -14,6 +14,7 @@ import (
 type TaskConditionDao interface {
 	ReplaceByTaskID(ctx context.Context, taskID int, conditions []model.TaskCondition) error
 	ListByTaskID(ctx context.Context, taskID int) ([]model.TaskCondition, error)
+	ListByTaskIDs(ctx context.Context, taskIDs []int) ([]model.TaskCondition, error)
 	GetByID(ctx context.Context, id int) (*model.TaskCondition, error)
 }
 
@@ -57,6 +58,19 @@ func (d *TaskConditionDaoImpl) ListByTaskID(ctx context.Context, taskID int) ([]
 	ret := d.db.WithContext(ctx).Where("task_id = ?", taskID).Order("no ASC").Find(&conditions)
 	if ret.Error != nil {
 		log.Logger.Errorf("failed to list conditions for task %d: %v", taskID, ret.Error)
+		return nil, ret.Error
+	}
+	return conditions, nil
+}
+
+func (d *TaskConditionDaoImpl) ListByTaskIDs(ctx context.Context, taskIDs []int) ([]model.TaskCondition, error) {
+	if len(taskIDs) == 0 {
+		return nil, nil
+	}
+	var conditions []model.TaskCondition
+	ret := d.db.WithContext(ctx).Where("task_id IN ?", taskIDs).Order("task_id ASC, no ASC").Find(&conditions)
+	if ret.Error != nil {
+		log.Logger.Errorf("failed to list conditions for tasks %v: %v", taskIDs, ret.Error)
 		return nil, ret.Error
 	}
 	return conditions, nil

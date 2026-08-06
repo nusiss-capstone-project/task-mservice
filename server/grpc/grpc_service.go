@@ -18,6 +18,7 @@ func (s *TaskService) SayHello(ctx context.Context, in *taskpb.HelloRequest) (*t
 }
 
 func (s *TaskService) EnrollTask(ctx context.Context, in *taskpb.EnrollTaskRequest) (*taskpb.EnrollTaskResponse, error) {
-	log.WithContext(ctx).Infof("enroll task request user_id=%d task_id=%d", in.GetUserId(), in.GetTaskId())
+	log.WithContext(ctx).Infof("enroll task request user_id=%d task_id=%d task_group_id=%d",
+		in.GetUserId(), in.GetTaskId(), in.GetTaskGroupId())
 	return service.GetUserTaskProgressService().EnrollTask(ctx, in)
 }

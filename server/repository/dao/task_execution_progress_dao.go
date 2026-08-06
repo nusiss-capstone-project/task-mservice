@@ -11,12 +11,19 @@ import (
 	"gorm.io/gorm"
 )
 
+// EnrollProgressItem is one task enrollment: execution progress + its condition progresses.
+// Service constructs models; DAO fills IDs after insert.
+type EnrollProgressItem struct {
+	Execution  *model.TaskExecutionProgress
+	Conditions []model.TaskConditionExecutionProgress
+}
+
 type TaskExecutionProgressDao interface {
 	Create(ctx context.Context, progress *model.TaskExecutionProgress) (int, error)
 	Update(ctx context.Context, progress *model.TaskExecutionProgress) error
 	GetByID(ctx context.Context, id int) (*model.TaskExecutionProgress, error)
 	UpdateStatusIfIn(ctx context.Context, id int, newStatus string, fromStatuses []string) (bool, error)
-	EnrollUserTask(ctx context.Context, userID, taskID int, conditions []model.TaskCondition) (int, []int, error)
+	EnrollUserTasks(ctx context.Context, items []EnrollProgressItem) error
 }
 
 type TaskExecutionProgressDaoImpl struct {
@@ -97,48 +104,34 @@ func (d *TaskExecutionProgressDaoImpl) UpdateStatusIfIn(
 	return ret.RowsAffected > 0, nil
 }
 
-func (d *TaskExecutionProgressDaoImpl) EnrollUserTask(
-	ctx context.Context,
-	userID, taskID int,
-	conditions []model.TaskCondition,
-) (int, []int, error) {
-	var executionID int
-	conditionProgressIDs := make([]int, 0, len(conditions))
-
-	err := d.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		execution := &model.TaskExecutionProgress{
-			TaskID: taskID,
-			UserID: userID,
-			Status: model.TaskExecutionProgressStatusInProgress,
-		}
-		if err := tx.Create(execution).Error; err != nil {
-			log.WithContext(ctx).Errorf("failed to create task execution progress for user %d task %d: %v", userID, taskID, err)
-			return err
-		}
-		log.WithContext(ctx).Infof("task execution progress created with ID: %d", execution.ID)
-		executionID = execution.ID
-
-		for _, condition := range conditions {
-			conditionProgress := &model.TaskConditionExecutionProgress{
-				UserID:                  userID,
-				TaskExecutionProgressID: execution.ID,
-				TaskID:                  taskID,
-				TaskConditionID:         condition.ID,
-				CurrentValue:            "",
-				Status:                  model.TaskConditionExecutionProgressStatusInProgress,
+func (d *TaskExecutionProgressDaoImpl) EnrollUserTasks(ctx context.Context, items []EnrollProgressItem) error {
+	if len(items) == 0 {
+		return errors.New("enroll items is empty")
+	}
+	return d.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		for i := range items {
+			item := &items[i]
+			if item.Execution == nil {
+				return errors.New("execution progress is nil")
 			}
-			if err := tx.Create(conditionProgress).Error; err != nil {
-				log.WithContext(ctx).Errorf("failed to create condition progress for user %d task %d condition %d: %v",
-					userID, taskID, condition.ID, err)
+			if err := tx.Create(item.Execution).Error; err != nil {
+				log.WithContext(ctx).Errorf("failed to create task execution progress for user %d task %d: %v",
+					item.Execution.UserID, item.Execution.TaskID, err)
 				return err
 			}
-			log.WithContext(ctx).Infof("task condition execution progress created with ID: %d", conditionProgress.ID)
-			conditionProgressIDs = append(conditionProgressIDs, conditionProgress.ID)
+			log.WithContext(ctx).Infof("task execution progress created with ID: %d", item.Execution.ID)
+
+			for j := range item.Conditions {
+				cond := &item.Conditions[j]
+				cond.TaskExecutionProgressID = item.Execution.ID
+				if err := tx.Create(cond).Error; err != nil {
+					log.WithContext(ctx).Errorf("failed to create condition progress for user %d task %d condition %d: %v",
+						cond.UserID, cond.TaskID, cond.TaskConditionID, err)
+					return err
+				}
+				log.WithContext(ctx).Infof("task condition execution progress created with ID: %d", cond.ID)
+			}
 		}
 		return nil
 	})
-	if err != nil {
-		return 0, nil, err
-	}
-	return executionID, conditionProgressIDs, nil
 }

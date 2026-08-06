@@ -10,6 +10,7 @@ import (
 	"github.com/expr-lang/expr"
 	"github.com/nusiss-capstone-project/task-mservice/common/taskpb"
 	"github.com/nusiss-capstone-project/task-mservice/server/http/data"
+	"github.com/nusiss-capstone-project/task-mservice/server/repository/dao"
 	"github.com/nusiss-capstone-project/task-mservice/server/repository/model"
 )
 
@@ -28,11 +29,18 @@ var (
 	}
 )
 
-func validateEnrollTaskRequest(req *taskpb.EnrollTaskRequest) (userID, taskID int, ok bool) {
-	if req == nil || req.GetUserId() <= 0 || req.GetTaskId() <= 0 {
-		return 0, 0, false
+func validateEnrollTaskRequest(req *taskpb.EnrollTaskRequest) (userID, taskID, taskGroupID int, ok bool) {
+	if req == nil || req.GetUserId() <= 0 {
+		return 0, 0, 0, false
 	}
-	return int(req.GetUserId()), int(req.GetTaskId()), true
+	userID = int(req.GetUserId())
+	taskID = int(req.GetTaskId())
+	taskGroupID = int(req.GetTaskGroupId())
+	// Exactly one of task_id / task_group_id must be set.
+	if (taskID > 0 && taskGroupID > 0) || (taskID <= 0 && taskGroupID <= 0) {
+		return 0, 0, 0, false
+	}
+	return userID, taskID, taskGroupID, true
 }
 
 func enrollTaskBase(code taskpb.ErrorCode, message string) *taskpb.BaseInfo {
@@ -42,19 +50,49 @@ func enrollTaskBase(code taskpb.ErrorCode, message string) *taskpb.BaseInfo {
 	}
 }
 
-func enrollTaskSuccess(executionID int, conditionProgressIDs []int) *taskpb.EnrollTaskResponse {
+func enrollTaskSuccess(items []dao.EnrollProgressItem) *taskpb.EnrollTaskResponse {
+	data := make([]*taskpb.EnrollTaskData, 0, len(items))
+	for _, item := range items {
+		conditionIDs := make([]int, 0, len(item.Conditions))
+		for _, cond := range item.Conditions {
+			conditionIDs = append(conditionIDs, cond.ID)
+		}
+		data = append(data, &taskpb.EnrollTaskData{
+			TaskId:                            int64(item.Execution.TaskID),
+			TaskExecutionProgressId:           int64(item.Execution.ID),
+			TaskConditionExecutionProgressIds: toInt64Slice(conditionIDs),
+		})
+	}
 	return &taskpb.EnrollTaskResponse{
 		Base: enrollTaskBase(taskpb.ErrorCode_OK, "ok"),
-		Data: &taskpb.EnrollTaskData{
-			TaskExecutionProgressId:           int64(executionID),
-			TaskConditionExecutionProgressIds: toInt64Slice(conditionProgressIDs),
-		},
+		Data: data,
 	}
 }
 
 func enrollTaskFail(code taskpb.ErrorCode, message string) *taskpb.EnrollTaskResponse {
 	return &taskpb.EnrollTaskResponse{
 		Base: enrollTaskBase(code, message),
+	}
+}
+
+func buildEnrollProgressItem(userID, taskID int, conditions []model.TaskCondition) dao.EnrollProgressItem {
+	conditionProgresses := make([]model.TaskConditionExecutionProgress, 0, len(conditions))
+	for _, condition := range conditions {
+		conditionProgresses = append(conditionProgresses, model.TaskConditionExecutionProgress{
+			UserID:          userID,
+			TaskID:          taskID,
+			TaskConditionID: condition.ID,
+			CurrentValue:    "",
+			Status:          model.TaskConditionExecutionProgressStatusInProgress,
+		})
+	}
+	return dao.EnrollProgressItem{
+		Execution: &model.TaskExecutionProgress{
+			TaskID: taskID,
+			UserID: userID,
+			Status: model.TaskExecutionProgressStatusInProgress,
+		},
+		Conditions: conditionProgresses,
 	}
 }
 
