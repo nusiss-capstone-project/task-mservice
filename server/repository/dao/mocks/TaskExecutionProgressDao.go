@@ -39,3 +39,8 @@ func (m *TaskExecutionProgressDao) EnrollUserTasks(ctx context.Context, items []
 	args := m.Called(ctx, items)
 	return args.Error(0)
 }
+
+func (m *TaskExecutionProgressDao) CountByUserGroupAndStatus(ctx context.Context, userID, groupID int, status string) (int, error) {
+	args := m.Called(ctx, userID, groupID, status)
+	return args.Int(0), args.Error(1)
+}

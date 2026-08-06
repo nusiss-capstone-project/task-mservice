@@ -444,7 +444,40 @@ func (s *userTaskProgressServiceImpl) markTaskExecutionCompleteAndPublish(
 		}
 	}
 
-	if err := s.taskCompleteProducer.PublishTaskCompleted(ctx, taskID, userID, producer.TaskCompletionStatusCompleted); err != nil {
+	return s.publishTaskCompletedEvent(ctx, taskID, userID)
+}
+
+// publishTaskCompletedEvent loads group progress stats and publishes task.events.completed.
+func (s *userTaskProgressServiceImpl) publishTaskCompletedEvent(ctx context.Context, taskID, userID int) error {
+	task, err := s.loadTask(ctx, taskID)
+	if err != nil {
+		return err
+	}
+
+	total, err := s.taskDao.CountByGroupIDAndStatus(ctx, task.TaskGroupID, model.StatusPublished)
+	if err != nil {
+		log.WithContext(ctx).Errorf("count published tasks for group %d: %v", task.TaskGroupID, err)
+		return errors.New(data.ErrServerError)
+	}
+	completed, err := s.taskExecutionProgressDao.CountByUserGroupAndStatus(
+		ctx, userID, task.TaskGroupID, model.TaskExecutionProgressStatusComplete,
+	)
+	if err != nil {
+		log.WithContext(ctx).Errorf(
+			"count completed executions user=%d group=%d: %v", userID, task.TaskGroupID, err,
+		)
+		return errors.New(data.ErrServerError)
+	}
+
+	event := producer.TaskCompletedEvent{
+		TaskID:             taskID,
+		UserID:             userID,
+		Status:             producer.TaskCompletionStatusCompleted,
+		GroupID:            task.TaskGroupID,
+		CompletedTaskCount: completed,
+		TotalTaskCount:     total,
+	}
+	if err := s.taskCompleteProducer.PublishTaskCompleted(ctx, event); err != nil {
 		log.WithContext(ctx).Errorf("publish task completed event task=%d user=%d: %v", taskID, userID, err)
 		return errors.New(data.ErrServerError)
 	}

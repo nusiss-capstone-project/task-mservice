@@ -9,6 +9,7 @@ import (
 
 	"github.com/nusiss-capstone-project/task-mservice/common/taskpb"
 	"github.com/nusiss-capstone-project/task-mservice/server/http/data"
+	producerpkg "github.com/nusiss-capstone-project/task-mservice/server/kafka/producer"
 	prodMocks "github.com/nusiss-capstone-project/task-mservice/server/kafka/producer/mocks"
 	"github.com/nusiss-capstone-project/task-mservice/server/repository/dao"
 	"github.com/nusiss-capstone-project/task-mservice/server/repository/dao/mocks"
@@ -366,13 +367,18 @@ func TestUpdateUserTaskProgress(t *testing.T) {
 		opDao.On("GetByID", mock.Anything, 3).Return(&model.MetricOperator{ID: 3, Code: "eq"}, nil)
 		condProgressDao.On("UpdateIfStatusIn", mock.Anything, 1, "true", model.TaskConditionExecutionProgressStatusComplete, eventTime, conditionCompleteFromStatuses).Return(true, nil)
 		execDao.On("GetByID", mock.Anything, 50).Return(&model.TaskExecutionProgress{ID: 50, Status: model.TaskExecutionProgressStatusInProgress}, nil)
-		taskDao.On("GetByID", mock.Anything, 5).Return(&model.Task{ID: 5, ConditionExpressions: "(1)"}, nil)
+		taskDao.On("GetByID", mock.Anything, 5).Return(&model.Task{ID: 5, TaskGroupID: 9, ConditionExpressions: "(1)"}, nil)
 		condDao.On("ListByTaskID", mock.Anything, 5).Return([]model.TaskCondition{{ID: 10, No: 1}}, nil)
 		condProgressDao.On("ListByTaskExecutionProgressID", mock.Anything, 50).Return([]model.TaskConditionExecutionProgress{
 			{TaskConditionID: 10, Status: model.TaskConditionExecutionProgressStatusComplete},
 		}, nil)
 		execDao.On("UpdateStatusIfIn", mock.Anything, 50, model.TaskExecutionProgressStatusComplete, taskExecutionCompleteFromStatuses).Return(true, nil)
-		producer.On("PublishTaskCompleted", mock.Anything, 5, 1, mock.Anything).Return(nil)
+		taskDao.On("CountByGroupIDAndStatus", mock.Anything, 9, model.StatusPublished).Return(3, nil)
+		execDao.On("CountByUserGroupAndStatus", mock.Anything, 1, 9, model.TaskExecutionProgressStatusComplete).Return(1, nil)
+		producer.On("PublishTaskCompleted", mock.Anything, producerpkg.TaskCompletedEvent{
+			TaskID: 5, UserID: 1, Status: producerpkg.TaskCompletionStatusCompleted,
+			GroupID: 9, CompletedTaskCount: 1, TotalTaskCount: 3,
+		}).Return(nil)
 		if err := svc.UpdateUserTaskProgress(ctx, 1, 2, "true", eventTime, ""); err != nil {
 			t.Fatalf("UpdateUserTaskProgress() error = %v", err)
 		}
@@ -392,14 +398,18 @@ func TestUpdateUserTaskProgress(t *testing.T) {
 		opDao.On("GetByID", mock.Anything, 3).Return(&model.MetricOperator{ID: 3, Code: "eq"}, nil)
 		condProgressDao.On("UpdateIfStatusIn", mock.Anything, 1, "true", model.TaskConditionExecutionProgressStatusComplete, eventTime, conditionCompleteFromStatuses).Return(true, nil)
 		execDao.On("GetByID", mock.Anything, 50).Return(&model.TaskExecutionProgress{ID: 50, Status: model.TaskExecutionProgressStatusInProgress}, nil).Once()
-		taskDao.On("GetByID", mock.Anything, 5).Return(&model.Task{ID: 5, ConditionExpressions: "(1)"}, nil)
+		taskDao.On("GetByID", mock.Anything, 5).Return(&model.Task{ID: 5, TaskGroupID: 9, ConditionExpressions: "(1)"}, nil)
 		condDao.On("ListByTaskID", mock.Anything, 5).Return([]model.TaskCondition{{ID: 10, No: 1}}, nil)
 		condProgressDao.On("ListByTaskExecutionProgressID", mock.Anything, 50).Return([]model.TaskConditionExecutionProgress{
 			{TaskConditionID: 10, Status: model.TaskConditionExecutionProgressStatusComplete},
 		}, nil)
 		execDao.On("UpdateStatusIfIn", mock.Anything, 50, model.TaskExecutionProgressStatusComplete, taskExecutionCompleteFromStatuses).Return(false, nil)
 		execDao.On("GetByID", mock.Anything, 50).Return(&model.TaskExecutionProgress{ID: 50, Status: model.TaskExecutionProgressStatusComplete}, nil).Once()
-		producer.On("PublishTaskCompleted", mock.Anything, 5, 1, mock.Anything).Return(nil)
+		taskDao.On("CountByGroupIDAndStatus", mock.Anything, 9, model.StatusPublished).Return(3, nil)
+		execDao.On("CountByUserGroupAndStatus", mock.Anything, 1, 9, model.TaskExecutionProgressStatusComplete).Return(2, nil)
+		producer.On("PublishTaskCompleted", mock.Anything, mock.MatchedBy(func(e producerpkg.TaskCompletedEvent) bool {
+			return e.TaskID == 5 && e.UserID == 1 && e.GroupID == 9 && e.CompletedTaskCount == 2 && e.TotalTaskCount == 3
+		})).Return(nil)
 		if err := svc.UpdateUserTaskProgress(ctx, 1, 2, "true", eventTime, ""); err != nil {
 			t.Fatalf("UpdateUserTaskProgress() error = %v", err)
 		}
@@ -418,13 +428,15 @@ func TestUpdateUserTaskProgress(t *testing.T) {
 		opDao.On("GetByID", mock.Anything, 3).Return(&model.MetricOperator{ID: 3, Code: "eq"}, nil)
 		condProgressDao.On("UpdateIfStatusIn", mock.Anything, 1, "true", model.TaskConditionExecutionProgressStatusComplete, eventTime, conditionCompleteFromStatuses).Return(true, nil)
 		execDao.On("GetByID", mock.Anything, 50).Return(&model.TaskExecutionProgress{ID: 50, Status: model.TaskExecutionProgressStatusInProgress}, nil)
-		taskDao.On("GetByID", mock.Anything, 5).Return(&model.Task{ID: 5, ConditionExpressions: "(1)"}, nil)
+		taskDao.On("GetByID", mock.Anything, 5).Return(&model.Task{ID: 5, TaskGroupID: 9, ConditionExpressions: "(1)"}, nil)
 		condDao.On("ListByTaskID", mock.Anything, 5).Return([]model.TaskCondition{{ID: 10, No: 1}}, nil)
 		condProgressDao.On("ListByTaskExecutionProgressID", mock.Anything, 50).Return([]model.TaskConditionExecutionProgress{
 			{TaskConditionID: 10, Status: model.TaskConditionExecutionProgressStatusComplete},
 		}, nil)
 		execDao.On("UpdateStatusIfIn", mock.Anything, 50, model.TaskExecutionProgressStatusComplete, taskExecutionCompleteFromStatuses).Return(true, nil)
-		producer.On("PublishTaskCompleted", mock.Anything, 5, 1, mock.Anything).Return(errors.New("kafka down"))
+		taskDao.On("CountByGroupIDAndStatus", mock.Anything, 9, model.StatusPublished).Return(3, nil)
+		execDao.On("CountByUserGroupAndStatus", mock.Anything, 1, 9, model.TaskExecutionProgressStatusComplete).Return(1, nil)
+		producer.On("PublishTaskCompleted", mock.Anything, mock.Anything).Return(errors.New("kafka down"))
 		err := svc.UpdateUserTaskProgress(ctx, 1, 2, "true", eventTime, "")
 		if err == nil || err.Error() != data.ErrServerError {
 			t.Fatalf("UpdateUserTaskProgress() error = %v", err)

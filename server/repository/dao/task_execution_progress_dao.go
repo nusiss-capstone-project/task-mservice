@@ -24,6 +24,7 @@ type TaskExecutionProgressDao interface {
 	GetByID(ctx context.Context, id int) (*model.TaskExecutionProgress, error)
 	UpdateStatusIfIn(ctx context.Context, id int, newStatus string, fromStatuses []string) (bool, error)
 	EnrollUserTasks(ctx context.Context, items []EnrollProgressItem) error
+	CountByUserGroupAndStatus(ctx context.Context, userID, groupID int, status string) (int, error)
 }
 
 type TaskExecutionProgressDaoImpl struct {
@@ -134,4 +135,26 @@ func (d *TaskExecutionProgressDaoImpl) EnrollUserTasks(ctx context.Context, item
 		}
 		return nil
 	})
+}
+
+func (d *TaskExecutionProgressDaoImpl) CountByUserGroupAndStatus(
+	ctx context.Context,
+	userID, groupID int,
+	status string,
+) (int, error) {
+	var count int64
+	ret := d.db.WithContext(ctx).Model(&model.TaskExecutionProgress{}).
+		Joins("JOIN task ON task.id = task_execution_progress.task_id").
+		Where("task_execution_progress.user_id = ?", userID).
+		Where("task.task_group_id = ?", groupID).
+		Where("task_execution_progress.status = ?", status).
+		Count(&count)
+	if ret.Error != nil {
+		log.WithContext(ctx).Errorf(
+			"failed to count execution progress user=%d group=%d status=%s: %v",
+			userID, groupID, status, ret.Error,
+		)
+		return 0, ret.Error
+	}
+	return int(count), nil
 }

@@ -15,6 +15,7 @@ type TaskDao interface {
 	Save(ctx context.Context, task *model.Task) (int, error)
 	GetByID(ctx context.Context, id int) (*model.Task, error)
 	ListByGroupID(ctx context.Context, groupID int) ([]model.Task, error)
+	CountByGroupIDAndStatus(ctx context.Context, groupID int, status string) (int, error)
 	UpdateStatus(ctx context.Context, id int, status string) error
 }
 
@@ -65,6 +66,18 @@ func (d *TaskDaoImpl) ListByGroupID(ctx context.Context, groupID int) ([]model.T
 		return nil, ret.Error
 	}
 	return tasks, nil
+}
+
+func (d *TaskDaoImpl) CountByGroupIDAndStatus(ctx context.Context, groupID int, status string) (int, error) {
+	var count int64
+	ret := d.db.WithContext(ctx).Model(&model.Task{}).
+		Where("task_group_id = ? AND status = ?", groupID, status).
+		Count(&count)
+	if ret.Error != nil {
+		log.Logger.Errorf("failed to count tasks for group %d status %s: %v", groupID, status, ret.Error)
+		return 0, ret.Error
+	}
+	return int(count), nil
 }
 
 func (d *TaskDaoImpl) UpdateStatus(ctx context.Context, id int, status string) error {
