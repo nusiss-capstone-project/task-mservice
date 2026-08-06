@@ -10,7 +10,7 @@ const (
 	TopicUserKycCompleteEvents         = "user.events.kyc_complete"
 	TopicPaymentMethodAddedEvents      = "payment.payment_method.added"
 	TopicAssetOrderPaymentResultEvents = "asset.order.payment_result"
-	TopicDepositOrderPaymentResultEvents = "deposit.order.payment_result"
+	TopicDepositOrderPaymentResultEvents = "deposit.transaction.payment_result"
 )
 
 func init() {

@@ -11,20 +11,20 @@ import (
 )
 
 // depositOrderPaymentResultEvent is a provisional schema (order_id/status/currency/amount).
-type depositOrderPaymentResultEvent struct {
-	UserID    int64  `json:"user_id"`
-	OrderID   int64  `json:"order_id"`
-	Status    string `json:"status"`
-	Currency  string `json:"currency"`
-	Amount    string `json:"amount"`
-	EventTime int64  `json:"event_time"`
+type depositPaymentResultEvent struct {
+	UserID        int64  `json:"user_id"`
+	TransactionID int64  `json:"transaction_id"`
+	Status        string `json:"status"`
+	Currency      string `json:"currency"`
+	Amount        string `json:"amount"`
+	EventTime     int64  `json:"event_time"`
 }
 
-func (e *depositOrderPaymentResultEvent) Validate() error {
+func (e *depositPaymentResultEvent) Validate() error {
 	if e.UserID <= 0 {
 		return errors.New("user_id is required")
 	}
-	if e.OrderID <= 0 {
+	if e.TransactionID <= 0 {
 		return errors.New("order_id is required")
 	}
 	if e.EventTime <= 0 {
@@ -38,7 +38,7 @@ func handleDepositOrderPaymentResultEvent(ctx context.Context, msg *kafka.Messag
 		"topic", msg.Topic,
 		"offset", msg.Offset,
 	)
-	var event depositOrderPaymentResultEvent
+	var event depositPaymentResultEvent
 	if err := json.Unmarshal(msg.Value, &event); err != nil {
 		return fmt.Errorf("unmarshal deposit order payment result event: %w", err)
 	}
@@ -48,7 +48,7 @@ func handleDepositOrderPaymentResultEvent(ctx context.Context, msg *kafka.Messag
 	if event.Status != paymentStatusOK {
 		log.WithContext(ctx).Infow("skip deposit payment event, status not pay_succeed",
 			"user_id", event.UserID,
-			"order_id", event.OrderID,
+			"transaction_id", event.TransactionID,
 			"status", event.Status,
 		)
 		return nil
@@ -58,7 +58,7 @@ func handleDepositOrderPaymentResultEvent(ctx context.Context, msg *kafka.Messag
 	}
 
 	eventTime := eventTimeFromUnixSeconds(event.EventTime)
-	bizID := orderBizID(event.OrderID)
+	bizID := orderBizID(event.TransactionID)
 	userID := int(event.UserID)
 
 	updates := []struct {
