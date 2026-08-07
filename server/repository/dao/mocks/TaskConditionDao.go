@@ -31,3 +31,11 @@ func (m *TaskConditionDao) ListByTaskID(ctx context.Context, taskID int) ([]mode
 	}
 	return args.Get(0).([]model.TaskCondition), args.Error(1)
 }
+
+func (m *TaskConditionDao) ListByTaskIDs(ctx context.Context, taskIDs []int) ([]model.TaskCondition, error) {
+	args := m.Called(ctx, taskIDs)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]model.TaskCondition), args.Error(1)
+}

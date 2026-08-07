@@ -15,8 +15,12 @@ import (
 )
 
 type UserTaskProgressService interface {
-	UpdateUserTaskProgress(ctx context.Context, userID, metricID int, metricValue string, eventTime time.Time) error
+	// UpdateUserTaskProgress applies a metric event. When bizID is non-empty, (metric_code, bizID)
+	// is claimed for idempotency; duplicate claims are no-ops. Codes ending with "_accum" add to
+	// current_value; otherwise the value is set.
+	UpdateUserTaskProgress(ctx context.Context, userID, metricID int, metricValue string, eventTime time.Time, bizID string) error
 	EnrollTask(ctx context.Context, enrollTaskRequest *taskpb.EnrollTaskRequest) (*taskpb.EnrollTaskResponse, error)
+	ListUserTaskProgressInGroup(ctx context.Context, groupID, userID int) ([]data.UserTaskProgressVO, error)
 }
 
 type userTaskProgressServiceImpl struct {
@@ -24,7 +28,10 @@ type userTaskProgressServiceImpl struct {
 	taskConditionExecutionProgressDao dao.TaskConditionExecutionProgressDao
 	taskConditionDao                  dao.TaskConditionDao
 	taskDao                           dao.TaskDao
+	taskGroupDao                      dao.TaskGroupDao
 	metricOperatorDao                 dao.MetricOperatorDao
+	dataMetricDao                     dao.DataMetricDao
+	metricEventDedupDao               dao.MetricEventDedupDao
 	taskCompleteProducer              producer.TaskCompleteProducer
 }
 
@@ -40,7 +47,10 @@ func GetUserTaskProgressService() UserTaskProgressService {
 			taskConditionExecutionProgressDao: dao.GetTaskConditionExecutionProgressDao(),
 			taskConditionDao:                  dao.GetTaskConditionDao(),
 			taskDao:                           dao.GetTaskDao(),
+			taskGroupDao:                      dao.GetTaskGroupDao(),
 			metricOperatorDao:                 dao.GetMetricOperatorDao(),
+			dataMetricDao:                     dao.GetDataMetricDao(),
+			metricEventDedupDao:               dao.GetMetricEventDedupDao(),
 			taskCompleteProducer:              producer.GetTaskCompleteProducer(),
 		}
 	})
@@ -48,24 +58,123 @@ func GetUserTaskProgressService() UserTaskProgressService {
 }
 
 func (s *userTaskProgressServiceImpl) EnrollTask(ctx context.Context, req *taskpb.EnrollTaskRequest) (*taskpb.EnrollTaskResponse, error) {
-	userID, taskID, ok := validateEnrollTaskRequest(req)
+	userID, taskID, taskGroupID, ok := validateEnrollTaskRequest(req)
 	if !ok {
 		log.WithContext(ctx).Errorf("invalid enroll task request: %v", req)
 		return enrollTaskFail(taskpb.ErrorCode_INVALID_PARAM, data.ErrInvalidInput), nil
 	}
+	if taskGroupID > 0 {
+		return s.enrollGroup(ctx, userID, taskGroupID), nil
+	}
+	return s.enrollSingleTask(ctx, userID, taskID), nil
+}
+
+func (s *userTaskProgressServiceImpl) ListUserTaskProgressInGroup(
+	ctx context.Context,
+	groupID, userID int,
+) ([]data.UserTaskProgressVO, error) {
+	if groupID <= 0 || userID <= 0 {
+		return nil, errors.New(data.ErrInvalidInput)
+	}
+	group, err := s.taskGroupDao.GetByID(ctx, groupID)
+	if err != nil {
+		log.WithContext(ctx).Errorf("load task group %d: %v", groupID, err)
+		return nil, errors.New(data.ErrServerError)
+	}
+	if group == nil {
+		return nil, errors.New(data.ErrTaskGroupNotFound)
+	}
+
+	tasks, err := s.taskDao.ListByGroupIDAndStatus(ctx, groupID, model.StatusPublished)
+	if err != nil {
+		log.WithContext(ctx).Errorf("list published tasks for group %d: %v", groupID, err)
+		return nil, errors.New(data.ErrServerError)
+	}
+	progresses, err := s.taskExecutionProgressDao.ListByUserAndGroupID(ctx, userID, groupID)
+	if err != nil {
+		log.WithContext(ctx).Errorf("list user %d progress in group %d: %v", userID, groupID, err)
+		return nil, errors.New(data.ErrServerError)
+	}
+	progressByTaskID := make(map[int]model.TaskExecutionProgress, len(progresses))
+	for _, p := range progresses {
+		progressByTaskID[p.TaskID] = p
+	}
+
+	result := make([]data.UserTaskProgressVO, 0, len(tasks))
+	for _, task := range tasks {
+		item := data.UserTaskProgressVO{
+			ID:        task.ID,
+			Name:      task.Name,
+			Status:    model.TaskExecutionProgressStatusInit,
+			CreatedAt: task.CreatedAt.Unix(),
+			UpdatedAt: task.UpdatedAt.Unix(),
+		}
+		if progress, ok := progressByTaskID[task.ID]; ok {
+			item.Status = progress.Status
+			item.CreatedAt = progress.CreatedAt.Unix()
+			item.UpdatedAt = progress.UpdatedAt.Unix()
+		}
+		result = append(result, item)
+	}
+	return result, nil
+}
+
+func (s *userTaskProgressServiceImpl) enrollSingleTask(ctx context.Context, userID, taskID int) *taskpb.EnrollTaskResponse {
 	task, err := s.taskDao.GetByID(ctx, taskID)
 	if err != nil {
 		log.WithContext(ctx).Errorf("load task %d: %v", taskID, err)
-		return enrollTaskFail(taskpb.ErrorCode_UNKNOWN_ERROR, data.ErrServerError), nil
+		return enrollTaskFail(taskpb.ErrorCode_UNKNOWN_ERROR, data.ErrServerError)
 	}
 	if task == nil {
-		return enrollTaskFail(taskpb.ErrorCode_DATA_NOT_EXIST, data.ErrTaskNotFound), nil
+		return enrollTaskFail(taskpb.ErrorCode_DATA_NOT_EXIST, data.ErrTaskNotFound)
 	}
 	conditions, failResp := s.loadTaskConditions(ctx, taskID)
 	if failResp != nil {
-		return failResp, nil
+		return failResp
 	}
-	return s.createEnrollment(ctx, userID, taskID, conditions), nil
+	return s.createEnrollment(ctx, []dao.EnrollProgressItem{
+		buildEnrollProgressItem(userID, taskID, conditions),
+	})
+}
+
+func (s *userTaskProgressServiceImpl) enrollGroup(ctx context.Context, userID, taskGroupID int) *taskpb.EnrollTaskResponse {
+	group, err := s.taskGroupDao.GetByID(ctx, taskGroupID)
+	if err != nil {
+		log.WithContext(ctx).Errorf("load task group %d: %v", taskGroupID, err)
+		return enrollTaskFail(taskpb.ErrorCode_UNKNOWN_ERROR, data.ErrServerError)
+	}
+	if group == nil {
+		return enrollTaskFail(taskpb.ErrorCode_DATA_NOT_EXIST, data.ErrTaskGroupNotFound)
+	}
+	tasks, err := s.taskDao.ListByGroupID(ctx, taskGroupID)
+	if err != nil {
+		log.WithContext(ctx).Errorf("list tasks for group %d: %v", taskGroupID, err)
+		return enrollTaskFail(taskpb.ErrorCode_UNKNOWN_ERROR, data.ErrServerError)
+	}
+	if len(tasks) == 0 {
+		log.WithContext(ctx).Errorf("task group %d has no tasks", taskGroupID)
+		return enrollTaskFail(taskpb.ErrorCode_DATA_NOT_EXIST, data.ErrTaskNotFound)
+	}
+
+	taskIDs := make([]int, 0, len(tasks))
+	for _, task := range tasks {
+		taskIDs = append(taskIDs, task.ID)
+	}
+	conditionsByTask, failResp := s.loadTaskConditionsByTaskIDs(ctx, taskIDs)
+	if failResp != nil {
+		return failResp
+	}
+
+	items := make([]dao.EnrollProgressItem, 0, len(tasks))
+	for _, task := range tasks {
+		conditions := conditionsByTask[task.ID]
+		if len(conditions) == 0 {
+			log.WithContext(ctx).Errorf("task %d has no conditions", task.ID)
+			return enrollTaskFail(taskpb.ErrorCode_INVALID_PARAM, data.ErrAtLeastOneConditionRequired)
+		}
+		items = append(items, buildEnrollProgressItem(userID, task.ID, conditions))
+	}
+	return s.createEnrollment(ctx, items)
 }
 
 func (s *userTaskProgressServiceImpl) UpdateUserTaskProgress(
@@ -73,18 +182,58 @@ func (s *userTaskProgressServiceImpl) UpdateUserTaskProgress(
 	userID, metricID int,
 	metricValue string,
 	eventTime time.Time,
+	bizID string,
 ) error {
 	if userID <= 0 || metricID <= 0 || metricValue == "" || eventTime.IsZero() {
 		return errors.New(data.ErrInvalidInput)
 	}
 
+	metric, err := s.dataMetricDao.GetByID(ctx, metricID)
+	if err != nil {
+		log.WithContext(ctx).Errorf("load data metric %d: %v", metricID, err)
+		return errors.New(data.ErrServerError)
+	}
+	if metric == nil {
+		log.WithContext(ctx).Errorf("data metric %d not found", metricID)
+		return errors.New(data.ErrInvalidInput)
+	}
+
+	claimed := false
+	if bizID != "" {
+		ok, claimErr := s.metricEventDedupDao.TryClaim(ctx, metric.Code, bizID)
+		if claimErr != nil {
+			log.WithContext(ctx).Errorf("claim metric event %s/%s: %v", metric.Code, bizID, claimErr)
+			return errors.New(data.ErrServerError)
+		}
+		if !ok {
+			log.WithContext(ctx).Infof("skip duplicate metric event %s/%s", metric.Code, bizID)
+			return nil
+		}
+		claimed = true
+	}
+
+	err = s.applyMetricToProgresses(ctx, userID, metricID, metric.Code, metricValue, eventTime)
+	if err != nil && claimed {
+		if releaseErr := s.metricEventDedupDao.Release(ctx, metric.Code, bizID); releaseErr != nil {
+			log.WithContext(ctx).Errorf("release metric event %s/%s after failure: %v", metric.Code, bizID, releaseErr)
+		}
+	}
+	return err
+}
+
+func (s *userTaskProgressServiceImpl) applyMetricToProgresses(
+	ctx context.Context,
+	userID, metricID int,
+	metricCode, metricValue string,
+	eventTime time.Time,
+) error {
 	progresses, err := s.loadInProgressConditionProgresses(ctx, userID, metricID)
 	if err != nil {
 		log.WithContext(ctx).Errorf("load in-progress condition progress user=%d metric=%d: %v", userID, metricID, err)
 		return err
 	}
 	for _, progress := range progresses {
-		if err := s.processConditionProgress(ctx, progress, metricValue, eventTime); err != nil {
+		if err := s.processConditionProgress(ctx, progress, metricCode, metricValue, eventTime); err != nil {
 			log.WithContext(ctx).Errorf("process condition progress user=%d metric=%d: %v", userID, metricID, err)
 			return err
 		}
@@ -105,21 +254,32 @@ func (s *userTaskProgressServiceImpl) loadTaskConditions(ctx context.Context, ta
 	return conditions, nil
 }
 
-func (s *userTaskProgressServiceImpl) createEnrollment(
+func (s *userTaskProgressServiceImpl) loadTaskConditionsByTaskIDs(
 	ctx context.Context,
-	userID, taskID int,
-	conditions []model.TaskCondition,
-) *taskpb.EnrollTaskResponse {
-	executionID, conditionProgressIDs, err := s.taskExecutionProgressDao.EnrollUserTask(ctx, userID, taskID, conditions)
+	taskIDs []int,
+) (map[int][]model.TaskCondition, *taskpb.EnrollTaskResponse) {
+	conditions, err := s.taskConditionDao.ListByTaskIDs(ctx, taskIDs)
 	if err != nil {
+		log.WithContext(ctx).Errorf("list task conditions for tasks %v: %v", taskIDs, err)
+		return nil, enrollTaskFail(taskpb.ErrorCode_UNKNOWN_ERROR, data.ErrServerError)
+	}
+	byTask := make(map[int][]model.TaskCondition, len(taskIDs))
+	for _, condition := range conditions {
+		byTask[condition.TaskID] = append(byTask[condition.TaskID], condition)
+	}
+	return byTask, nil
+}
+
+func (s *userTaskProgressServiceImpl) createEnrollment(ctx context.Context, items []dao.EnrollProgressItem) *taskpb.EnrollTaskResponse {
+	if err := s.taskExecutionProgressDao.EnrollUserTasks(ctx, items); err != nil {
 		if isDuplicateEntryError(err) {
-			log.WithContext(ctx).Infof("user %d already enrolled in task %d", userID, taskID)
+			log.WithContext(ctx).Infof("duplicate enrollment detected: %v", err)
 			return enrollTaskFail(taskpb.ErrorCode_INVALID_PARAM, data.ErrInvalidInput)
 		}
-		log.WithContext(ctx).Errorf("enroll user %d task %d: %v", userID, taskID, err)
+		log.WithContext(ctx).Errorf("enroll tasks: %v", err)
 		return enrollTaskFail(taskpb.ErrorCode_UNKNOWN_ERROR, data.ErrServerError)
 	}
-	return enrollTaskSuccess(executionID, conditionProgressIDs)
+	return enrollTaskSuccess(items)
 }
 
 func (s *userTaskProgressServiceImpl) loadInProgressConditionProgresses(
@@ -137,7 +297,7 @@ func (s *userTaskProgressServiceImpl) loadInProgressConditionProgresses(
 func (s *userTaskProgressServiceImpl) processConditionProgress(
 	ctx context.Context,
 	progress model.TaskConditionExecutionProgress,
-	metricValue string,
+	metricCode, metricValue string,
 	eventTime time.Time,
 ) error {
 	if isStaleEvent(eventTime, progress.LastEventTime) {
@@ -151,7 +311,13 @@ func (s *userTaskProgressServiceImpl) processConditionProgress(
 		return err
 	}
 
-	if err := s.updateConditionCurrentValue(ctx, progress.ID, metricValue, eventTime); err != nil {
+	effectiveValue, err := resolveMetricValue(metricCode, progress.CurrentValue, metricValue)
+	if err != nil {
+		log.WithContext(ctx).Errorf("resolve metric value for condition progress %d: %v", progress.ID, err)
+		return errors.New(data.ErrInvalidInput)
+	}
+
+	if err := s.updateConditionCurrentValue(ctx, progress.ID, effectiveValue, eventTime); err != nil {
 		return err
 	}
 
@@ -160,7 +326,7 @@ func (s *userTaskProgressServiceImpl) processConditionProgress(
 		return err
 	}
 
-	matched, err := evaluateMetricOperator(operator.Code, metricValue, condition.ConditionValue)
+	matched, err := evaluateMetricOperator(operator.Code, effectiveValue, condition.ConditionValue)
 	if err != nil {
 		log.WithContext(ctx).Errorf("evaluate metric operator for condition progress %d: %v", progress.ID, err)
 		return errors.New(data.ErrInvalidInput)
@@ -173,7 +339,7 @@ func (s *userTaskProgressServiceImpl) processConditionProgress(
 		log.WithContext(ctx).Infof("condition progress %d not completed, ret: %s", progress.ID, progress.Status)
 		return nil
 	}
-	completed, err := s.markConditionProgressComplete(ctx, progress.ID, metricValue, eventTime)
+	completed, err := s.markConditionProgressComplete(ctx, progress.ID, effectiveValue, eventTime)
 	if err != nil {
 		return err
 	}
@@ -329,7 +495,40 @@ func (s *userTaskProgressServiceImpl) markTaskExecutionCompleteAndPublish(
 		}
 	}
 
-	if err := s.taskCompleteProducer.PublishTaskCompleted(ctx, taskID, userID, producer.TaskCompletionStatusCompleted); err != nil {
+	return s.publishTaskCompletedEvent(ctx, taskID, userID)
+}
+
+// publishTaskCompletedEvent loads group progress stats and publishes task.events.completed.
+func (s *userTaskProgressServiceImpl) publishTaskCompletedEvent(ctx context.Context, taskID, userID int) error {
+	task, err := s.loadTask(ctx, taskID)
+	if err != nil {
+		return err
+	}
+
+	total, err := s.taskDao.CountByGroupIDAndStatus(ctx, task.TaskGroupID, model.StatusPublished)
+	if err != nil {
+		log.WithContext(ctx).Errorf("count published tasks for group %d: %v", task.TaskGroupID, err)
+		return errors.New(data.ErrServerError)
+	}
+	completed, err := s.taskExecutionProgressDao.CountByUserGroupAndStatus(
+		ctx, userID, task.TaskGroupID, model.TaskExecutionProgressStatusComplete,
+	)
+	if err != nil {
+		log.WithContext(ctx).Errorf(
+			"count completed executions user=%d group=%d: %v", userID, task.TaskGroupID, err,
+		)
+		return errors.New(data.ErrServerError)
+	}
+
+	event := producer.TaskCompletedEvent{
+		TaskID:             taskID,
+		UserID:             userID,
+		Status:             producer.TaskCompletionStatusCompleted,
+		GroupID:            task.TaskGroupID,
+		CompletedTaskCount: completed,
+		TotalTaskCount:     total,
+	}
+	if err := s.taskCompleteProducer.PublishTaskCompleted(ctx, event); err != nil {
 		log.WithContext(ctx).Errorf("publish task completed event task=%d user=%d: %v", taskID, userID, err)
 		return errors.New(data.ErrServerError)
 	}

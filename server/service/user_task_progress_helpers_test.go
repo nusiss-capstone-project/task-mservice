@@ -10,6 +10,21 @@ import (
 	"github.com/nusiss-capstone-project/task-mservice/server/repository/model"
 )
 
+func TestResolveMetricValue(t *testing.T) {
+	got, err := resolveMetricValue("trade_amount", "20", "10")
+	if err != nil || got != "10" {
+		t.Fatalf("set mode got=%q err=%v", got, err)
+	}
+	got, err = resolveMetricValue("trade_amount_accum", "20", "10")
+	if err != nil || got != "30" {
+		t.Fatalf("accum mode got=%q err=%v", got, err)
+	}
+	got, err = resolveMetricValue("trade_count_accum", "", "1")
+	if err != nil || got != "1" {
+		t.Fatalf("accum from empty got=%q err=%v", got, err)
+	}
+}
+
 func TestIsStaleEvent(t *testing.T) {
 	lastEventTime := time.Date(2026, 1, 2, 10, 0, 0, 0, time.UTC)
 	if !isStaleEvent(lastEventTime.Add(-time.Minute), &lastEventTime) {
@@ -158,14 +173,24 @@ func TestTerminalStatuses(t *testing.T) {
 }
 
 func TestValidateEnrollTaskRequest(t *testing.T) {
-	userID, taskID, ok := validateEnrollTaskRequest(&taskpb.EnrollTaskRequest{UserId: 1, TaskId: 2})
-	if !ok || userID != 1 || taskID != 2 {
-		t.Fatalf("unexpected result: ok=%v user=%d task=%d", ok, userID, taskID)
+	userID, taskID, groupID, ok := validateEnrollTaskRequest(&taskpb.EnrollTaskRequest{UserId: 1, TaskId: 2})
+	if !ok || userID != 1 || taskID != 2 || groupID != 0 {
+		t.Fatalf("unexpected result: ok=%v user=%d task=%d group=%d", ok, userID, taskID, groupID)
 	}
-	if _, _, ok := validateEnrollTaskRequest(nil); ok {
+	userID, taskID, groupID, ok = validateEnrollTaskRequest(&taskpb.EnrollTaskRequest{UserId: 1, TaskGroupId: 3})
+	if !ok || userID != 1 || taskID != 0 || groupID != 3 {
+		t.Fatalf("unexpected group result: ok=%v user=%d task=%d group=%d", ok, userID, taskID, groupID)
+	}
+	if _, _, _, ok := validateEnrollTaskRequest(nil); ok {
 		t.Fatal("nil request should be invalid")
 	}
-	if _, _, ok := validateEnrollTaskRequest(&taskpb.EnrollTaskRequest{UserId: 0, TaskId: 1}); ok {
+	if _, _, _, ok := validateEnrollTaskRequest(&taskpb.EnrollTaskRequest{UserId: 0, TaskId: 1}); ok {
 		t.Fatal("zero user id should be invalid")
+	}
+	if _, _, _, ok := validateEnrollTaskRequest(&taskpb.EnrollTaskRequest{UserId: 1, TaskId: 1, TaskGroupId: 2}); ok {
+		t.Fatal("both task and group should be invalid")
+	}
+	if _, _, _, ok := validateEnrollTaskRequest(&taskpb.EnrollTaskRequest{UserId: 1}); ok {
+		t.Fatal("missing task and group should be invalid")
 	}
 }

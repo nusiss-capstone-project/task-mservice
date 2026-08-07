@@ -25,5 +25,7 @@ kafka:
   group_id: task-mservice
   client_id: task-mservice
   topics:
-    - deposit.events
-    - user.events.registered
+    - user.events.kyc_complete
+    - payment.payment_method.added
+    - asset.order.payment_result
+    - deposit.order.payment_result

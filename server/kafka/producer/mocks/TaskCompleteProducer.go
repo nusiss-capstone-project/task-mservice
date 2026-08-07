@@ -11,7 +11,7 @@ type TaskCompleteProducer struct {
 	mock.Mock
 }
 
-func (m *TaskCompleteProducer) PublishTaskCompleted(ctx context.Context, taskID, userID int, status producer.TaskCompletionStatus) error {
-	args := m.Called(ctx, taskID, userID, status)
+func (m *TaskCompleteProducer) PublishTaskCompleted(ctx context.Context, event producer.TaskCompletedEvent) error {
+	args := m.Called(ctx, event)
 	return args.Error(0)
 }

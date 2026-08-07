@@ -43,6 +43,7 @@ func Init() {
 		&model.MetricOperator{},
 		&model.TaskExecutionProgress{},
 		&model.TaskConditionExecutionProgress{},
+		&model.MetricEventDedup{},
 	)
 	if err != nil {
 		panic(err)
