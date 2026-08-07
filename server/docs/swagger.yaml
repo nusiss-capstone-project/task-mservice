@@ -91,6 +91,19 @@ definitions:
     required:
     - name
     type: object
+  data.UserTaskProgressVO:
+    properties:
+      created_at:
+        type: integer
+      id:
+        type: integer
+      name:
+        type: string
+      status:
+        type: string
+      updated_at:
+        type: integer
+    type: object
 info:
   contact: {}
 paths:
@@ -493,6 +506,50 @@ paths:
       summary: Publish Task
       tags:
       - Task
+  /task-ms/v1/admin/tasks/task_group/{task_group_id}/users/{user_id}:
+    get:
+      description: List published tasks in a group with the given user's execution
+        status.
+      parameters:
+      - description: Task group ID
+        in: path
+        name: task_group_id
+        required: true
+        type: integer
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/data.UserTaskProgressVO'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: Admin user task progress in group
+      tags:
+      - Task Progress
   /task-ms/v1/items:
     post:
       consumes:
@@ -553,4 +610,47 @@ paths:
       summary: Item Query with ID
       tags:
       - Item
+  /task-ms/v1/web/tasks/task_group/{task_group_id}:
+    get:
+      description: List published tasks in a group with the authenticated user's execution
+        status.
+      parameters:
+      - description: Task group ID
+        in: path
+        name: task_group_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/data.BaseResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/data.UserTaskProgressVO'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/data.BaseResponse'
+      summary: Web user task progress in group
+      tags:
+      - Task Progress
 swagger: "2.0"
