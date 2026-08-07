@@ -44,3 +44,11 @@ func (m *TaskExecutionProgressDao) CountByUserGroupAndStatus(ctx context.Context
 	args := m.Called(ctx, userID, groupID, status)
 	return args.Int(0), args.Error(1)
 }
+
+func (m *TaskExecutionProgressDao) ListByUserAndGroupID(ctx context.Context, userID, groupID int) ([]model.TaskExecutionProgress, error) {
+	args := m.Called(ctx, userID, groupID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]model.TaskExecutionProgress), args.Error(1)
+}

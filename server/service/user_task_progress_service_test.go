@@ -443,3 +443,55 @@ func TestUpdateUserTaskProgress(t *testing.T) {
 		}
 	})
 }
+
+func TestListUserTaskProgressInGroup(t *testing.T) {
+	initEnv()
+	ctx := context.Background()
+	created := time.Date(2026, 8, 1, 10, 0, 0, 0, time.UTC)
+	updated := time.Date(2026, 8, 2, 11, 0, 0, 0, time.UTC)
+
+	t.Run("invalid input", func(t *testing.T) {
+		_, _, _, _, _, _, _, _, _, svc := newUserTaskProgressServiceTestDeps()
+		if _, err := svc.ListUserTaskProgressInGroup(ctx, 0, 1); err == nil {
+			t.Fatal("expected invalid input")
+		}
+	})
+
+	t.Run("group not found", func(t *testing.T) {
+		_, _, _, _, groupDao, _, _, _, _, svc := newUserTaskProgressServiceTestDeps()
+		groupDao.On("GetByID", mock.Anything, 9).Return(nil, nil)
+		_, err := svc.ListUserTaskProgressInGroup(ctx, 9, 1)
+		if err == nil || err.Error() != data.ErrTaskGroupNotFound {
+			t.Fatalf("error = %v", err)
+		}
+	})
+
+	t.Run("success merges progress", func(t *testing.T) {
+		execDao, _, _, taskDao, groupDao, _, _, _, _, svc := newUserTaskProgressServiceTestDeps()
+		groupDao.On("GetByID", mock.Anything, 9).Return(&model.TaskGroup{ID: 9}, nil)
+		taskDao.On("ListByGroupIDAndStatus", mock.Anything, 9, model.StatusPublished).Return([]model.Task{
+			{ID: 1, Name: "KYC Completed", CreatedAt: created, UpdatedAt: created},
+			{ID: 2, Name: "add payment method", CreatedAt: created, UpdatedAt: created},
+		}, nil)
+		execDao.On("ListByUserAndGroupID", mock.Anything, 1, 9).Return([]model.TaskExecutionProgress{
+			{
+				TaskID: 1, UserID: 1, Status: model.TaskExecutionProgressStatusComplete,
+				CreatedAt: created, UpdatedAt: updated,
+			},
+		}, nil)
+
+		got, err := svc.ListUserTaskProgressInGroup(ctx, 9, 1)
+		if err != nil {
+			t.Fatalf("ListUserTaskProgressInGroup() error = %v", err)
+		}
+		if len(got) != 2 {
+			t.Fatalf("len = %d", len(got))
+		}
+		if got[0].Status != model.TaskExecutionProgressStatusComplete || got[0].UpdatedAt != updated.Unix() {
+			t.Fatalf("task1 unexpected: %+v", got[0])
+		}
+		if got[1].Status != model.TaskExecutionProgressStatusInit || got[1].Name != "add payment method" {
+			t.Fatalf("task2 unexpected: %+v", got[1])
+		}
+	})
+}

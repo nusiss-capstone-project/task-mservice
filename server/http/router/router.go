@@ -31,6 +31,7 @@ func NewRouter() *gin.Engine {
 	adminAuth := commonauth.RequireRole([]string{
 		commonauth.RoleCampaignOps, commonauth.RoleAdmin,
 	})
+	webAuth := commonauth.RequireUser()
 
 	basicGroup := r.Group(serviceURIPrefix)
 	{
@@ -58,9 +59,16 @@ func NewRouter() *gin.Engine {
 			adminGroup.GET("/task-group/:task_group_id/tasks", api.ListTasksByGroup)
 			adminGroup.GET("/task-group/:task_group_id/tasks/:task_id", api.GetTaskDetail)
 			adminGroup.PATCH("/tasks/:task_id", api.PublishTask)
+			adminGroup.GET("/tasks/task_group/:task_group_id/users/:user_id", api.AdminListUserTaskProgress)
 
 			adminGroup.GET("/data-metrics", api.ListDataMetrics)
 			adminGroup.GET("/data-metric-operators", api.ListDataMetricOperators)
+		}
+
+		webGroup := basicGroup.Group("/web")
+		webGroup.Use(webAuth)
+		{
+			webGroup.GET("/tasks/task_group/:task_group_id", api.WebListUserTaskProgress)
 		}
 	}
 	return r

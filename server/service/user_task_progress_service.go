@@ -20,6 +20,7 @@ type UserTaskProgressService interface {
 	// current_value; otherwise the value is set.
 	UpdateUserTaskProgress(ctx context.Context, userID, metricID int, metricValue string, eventTime time.Time, bizID string) error
 	EnrollTask(ctx context.Context, enrollTaskRequest *taskpb.EnrollTaskRequest) (*taskpb.EnrollTaskResponse, error)
+	ListUserTaskProgressInGroup(ctx context.Context, groupID, userID int) ([]data.UserTaskProgressVO, error)
 }
 
 type userTaskProgressServiceImpl struct {
@@ -66,6 +67,56 @@ func (s *userTaskProgressServiceImpl) EnrollTask(ctx context.Context, req *taskp
 		return s.enrollGroup(ctx, userID, taskGroupID), nil
 	}
 	return s.enrollSingleTask(ctx, userID, taskID), nil
+}
+
+func (s *userTaskProgressServiceImpl) ListUserTaskProgressInGroup(
+	ctx context.Context,
+	groupID, userID int,
+) ([]data.UserTaskProgressVO, error) {
+	if groupID <= 0 || userID <= 0 {
+		return nil, errors.New(data.ErrInvalidInput)
+	}
+	group, err := s.taskGroupDao.GetByID(ctx, groupID)
+	if err != nil {
+		log.WithContext(ctx).Errorf("load task group %d: %v", groupID, err)
+		return nil, errors.New(data.ErrServerError)
+	}
+	if group == nil {
+		return nil, errors.New(data.ErrTaskGroupNotFound)
+	}
+
+	tasks, err := s.taskDao.ListByGroupIDAndStatus(ctx, groupID, model.StatusPublished)
+	if err != nil {
+		log.WithContext(ctx).Errorf("list published tasks for group %d: %v", groupID, err)
+		return nil, errors.New(data.ErrServerError)
+	}
+	progresses, err := s.taskExecutionProgressDao.ListByUserAndGroupID(ctx, userID, groupID)
+	if err != nil {
+		log.WithContext(ctx).Errorf("list user %d progress in group %d: %v", userID, groupID, err)
+		return nil, errors.New(data.ErrServerError)
+	}
+	progressByTaskID := make(map[int]model.TaskExecutionProgress, len(progresses))
+	for _, p := range progresses {
+		progressByTaskID[p.TaskID] = p
+	}
+
+	result := make([]data.UserTaskProgressVO, 0, len(tasks))
+	for _, task := range tasks {
+		item := data.UserTaskProgressVO{
+			ID:        task.ID,
+			Name:      task.Name,
+			Status:    model.TaskExecutionProgressStatusInit,
+			CreatedAt: task.CreatedAt.Unix(),
+			UpdatedAt: task.UpdatedAt.Unix(),
+		}
+		if progress, ok := progressByTaskID[task.ID]; ok {
+			item.Status = progress.Status
+			item.CreatedAt = progress.CreatedAt.Unix()
+			item.UpdatedAt = progress.UpdatedAt.Unix()
+		}
+		result = append(result, item)
+	}
+	return result, nil
 }
 
 func (s *userTaskProgressServiceImpl) enrollSingleTask(ctx context.Context, userID, taskID int) *taskpb.EnrollTaskResponse {

@@ -32,6 +32,14 @@ func (m *TaskDao) ListByGroupID(ctx context.Context, groupID int) ([]model.Task,
 	return args.Get(0).([]model.Task), args.Error(1)
 }
 
+func (m *TaskDao) ListByGroupIDAndStatus(ctx context.Context, groupID int, status string) ([]model.Task, error) {
+	args := m.Called(ctx, groupID, status)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]model.Task), args.Error(1)
+}
+
 func (m *TaskDao) CountByGroupIDAndStatus(ctx context.Context, groupID int, status string) (int, error) {
 	args := m.Called(ctx, groupID, status)
 	return args.Int(0), args.Error(1)
