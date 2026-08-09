@@ -28,4 +28,4 @@ kafka:
     - user.events.kyc_complete
     - payment.payment_method.added
     - asset.order.payment_result
-    - deposit.order.payment_result
+    - deposit.transaction.payment_result
