@@ -582,6 +582,75 @@
                 }
             }
         },
+        "/task-ms/v1/admin/tasks/task_group/{task_group_id}/users/{user_id}": {
+            "get": {
+                "description": "List published tasks in a group with the given user's execution status.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Task Progress"
+                ],
+                "summary": "Admin user task progress in group",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Task group ID",
+                        "name": "task_group_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "User ID",
+                        "name": "user_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/data.BaseResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/data.UserTaskProgressVO"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/task-ms/v1/admin/tasks/{task_id}": {
             "patch": {
                 "description": "Publish a draft task.",
@@ -756,6 +825,74 @@
                     }
                 }
             }
+        },
+        "/task-ms/v1/web/tasks/task_group/{task_group_id}": {
+            "get": {
+                "description": "List published tasks in a group with the authenticated user's execution status.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Task Progress"
+                ],
+                "summary": "Web user task progress in group",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Task group ID",
+                        "name": "task_group_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/data.BaseResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/data.UserTaskProgressVO"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/data.BaseResponse"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -895,6 +1032,26 @@
                     "type": "string"
                 },
                 "task_group_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "data.UserTaskProgressVO": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "updated_at": {
                     "type": "integer"
                 }
             }
