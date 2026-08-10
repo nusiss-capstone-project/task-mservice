@@ -97,8 +97,8 @@ INSERT INTO data_metric (code, data_source, config) VALUES
     ('trade_count_accum', 'asset.order.payment_result', '{"field":"count","mode":"accum"}'),
     ('trade_amount', 'asset.order.payment_result', '{"field":"payment_amount","mode":"set"}'),
     ('trade_amount_accum', 'asset.order.payment_result', '{"field":"payment_amount","mode":"accum"}'),
-    ('deposit_amount', 'deposit.order.payment_result', '{"field":"amount","mode":"set"}'),
-    ('deposit_amount_accum', 'deposit.order.payment_result', '{"field":"amount","mode":"accum"}')
+    ('deposit_amount', 'deposit.transaction.payment_result', '{"field":"amount","mode":"set"}'),
+    ('deposit_amount_accum', 'deposit.transaction.payment_result', '{"field":"amount","mode":"accum"}')
 ON DUPLICATE KEY UPDATE
     data_source = VALUES(data_source),
     config = VALUES(config);

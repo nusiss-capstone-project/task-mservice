@@ -11,16 +11,16 @@ import (
 )
 
 const (
-	metricKycPassed           = "kyc_passed"
-	metricPaymentMethodAdded  = "payment_method_added"
-	metricTradeCountAccum     = "trade_count_accum"
-	metricTradeAmount         = "trade_amount"
-	metricTradeAmountAccum    = "trade_amount_accum"
-	metricDepositAmount       = "deposit_amount"
-	metricDepositAmountAccum  = "deposit_amount_accum"
+	metricKycPassed          = "kyc_passed"
+	metricPaymentMethodAdded = "payment_method_added"
+	metricTradeCountAccum    = "trade_count_accum"
+	metricTradeAmount        = "trade_amount"
+	metricTradeAmountAccum   = "trade_amount_accum"
+	metricDepositAmount      = "deposit_amount"
+	metricDepositAmountAccum = "deposit_amount_accum"
 
-	kycStatusPassed   = "PASSED"
-	paymentStatusOK   = "pay_succeed"
+	kycStatusPassed = "PASSED"
+	paymentStatusOK = "SUCCEEDED"
 )
 
 func applyMetricEvent(
