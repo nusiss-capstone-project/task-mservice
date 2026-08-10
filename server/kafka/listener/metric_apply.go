@@ -20,7 +20,10 @@ const (
 	metricDepositAmountAccum = "deposit_amount_accum"
 
 	kycStatusPassed = "PASSED"
-	paymentStatusOK = "SUCCEEDED"
+
+	// Order vs deposit payment success statuses differ by upstream event contract.
+	orderPaymentStatusOK       = "pay_succeed"
+	transactionPaymentStatusOK = "SUCCEEDED"
 )
 
 func applyMetricEvent(

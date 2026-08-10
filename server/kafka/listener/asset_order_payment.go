@@ -51,7 +51,7 @@ func handleAssetOrderPaymentResultEvent(ctx context.Context, msg *kafka.Message)
 	if err := event.Validate(); err != nil {
 		return fmt.Errorf("invalid order payment result event: %w", err)
 	}
-	if event.Status != paymentStatusOK {
+	if event.Status != orderPaymentStatusOK {
 		log.WithContext(ctx).Infow("skip order payment event, status not pay_succeed",
 			"user_id", event.UserID,
 			"order_id", event.OrderID,
