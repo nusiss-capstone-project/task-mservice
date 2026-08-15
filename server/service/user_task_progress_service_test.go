@@ -363,7 +363,6 @@ func TestUpdateUserTaskProgress(t *testing.T) {
 		}
 		condProgressDao.On("ListInProgressByUserAndMetric", mock.Anything, 1, 2).Return([]model.TaskConditionExecutionProgress{progress}, nil)
 		condDao.On("GetByID", mock.Anything, 10).Return(&model.TaskCondition{ID: 10, No: 1, DataOperatorID: 3, ConditionValue: "true"}, nil)
-		condProgressDao.On("UpdateIfStatusIn", mock.Anything, 1, "true", "", eventTime, activeConditionProgressStatuses).Return(true, nil)
 		opDao.On("GetByID", mock.Anything, 3).Return(&model.MetricOperator{ID: 3, Code: "eq"}, nil)
 		condProgressDao.On("UpdateIfStatusIn", mock.Anything, 1, "true", model.TaskConditionExecutionProgressStatusComplete, eventTime, conditionCompleteFromStatuses).Return(true, nil)
 		execDao.On("GetByID", mock.Anything, 50).Return(&model.TaskExecutionProgress{ID: 50, Status: model.TaskExecutionProgressStatusInProgress}, nil)
@@ -394,7 +393,6 @@ func TestUpdateUserTaskProgress(t *testing.T) {
 		}
 		condProgressDao.On("ListInProgressByUserAndMetric", mock.Anything, 1, 2).Return([]model.TaskConditionExecutionProgress{progress}, nil)
 		condDao.On("GetByID", mock.Anything, 10).Return(&model.TaskCondition{ID: 10, No: 1, DataOperatorID: 3, ConditionValue: "true"}, nil)
-		condProgressDao.On("UpdateIfStatusIn", mock.Anything, 1, "true", "", eventTime, activeConditionProgressStatuses).Return(true, nil)
 		opDao.On("GetByID", mock.Anything, 3).Return(&model.MetricOperator{ID: 3, Code: "eq"}, nil)
 		condProgressDao.On("UpdateIfStatusIn", mock.Anything, 1, "true", model.TaskConditionExecutionProgressStatusComplete, eventTime, conditionCompleteFromStatuses).Return(true, nil)
 		execDao.On("GetByID", mock.Anything, 50).Return(&model.TaskExecutionProgress{ID: 50, Status: model.TaskExecutionProgressStatusInProgress}, nil).Once()
@@ -424,7 +422,6 @@ func TestUpdateUserTaskProgress(t *testing.T) {
 		}
 		condProgressDao.On("ListInProgressByUserAndMetric", mock.Anything, 1, 2).Return([]model.TaskConditionExecutionProgress{progress}, nil)
 		condDao.On("GetByID", mock.Anything, 10).Return(&model.TaskCondition{ID: 10, No: 1, DataOperatorID: 3, ConditionValue: "true"}, nil)
-		condProgressDao.On("UpdateIfStatusIn", mock.Anything, 1, "true", "", eventTime, activeConditionProgressStatuses).Return(true, nil)
 		opDao.On("GetByID", mock.Anything, 3).Return(&model.MetricOperator{ID: 3, Code: "eq"}, nil)
 		condProgressDao.On("UpdateIfStatusIn", mock.Anything, 1, "true", model.TaskConditionExecutionProgressStatusComplete, eventTime, conditionCompleteFromStatuses).Return(true, nil)
 		execDao.On("GetByID", mock.Anything, 50).Return(&model.TaskExecutionProgress{ID: 50, Status: model.TaskExecutionProgressStatusInProgress}, nil)

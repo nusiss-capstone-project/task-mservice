@@ -317,10 +317,6 @@ func (s *userTaskProgressServiceImpl) processConditionProgress(
 		return errors.New(data.ErrInvalidInput)
 	}
 
-	if err := s.updateConditionCurrentValue(ctx, progress.ID, effectiveValue, eventTime); err != nil {
-		return err
-	}
-
 	operator, err := s.loadMetricOperator(ctx, condition.DataOperatorID)
 	if err != nil {
 		return err
@@ -332,6 +328,10 @@ func (s *userTaskProgressServiceImpl) processConditionProgress(
 		return errors.New(data.ErrInvalidInput)
 	}
 	if !matched {
+		// Value-only update; do not touch status.
+		if err := s.updateConditionCurrentValue(ctx, progress.ID, effectiveValue, eventTime); err != nil {
+			return err
+		}
 		return s.tryCompleteTaskExecution(ctx, progress.TaskExecutionProgressID, progress.TaskID, progress.UserID)
 	}
 
@@ -339,11 +339,21 @@ func (s *userTaskProgressServiceImpl) processConditionProgress(
 		log.WithContext(ctx).Infof("condition progress %d not completed, ret: %s", progress.ID, progress.Status)
 		return nil
 	}
+	// Single CAS: set current_value + Complete + last_event_time together.
+	// Two-step update (value then Complete) can fail the second CAS when MySQL
+	// DATETIME(3) rounds last_event_time above the same Go eventTime.
 	completed, err := s.markConditionProgressComplete(ctx, progress.ID, effectiveValue, eventTime)
 	if err != nil {
 		return err
 	}
-	log.WithContext(ctx).Infof("condition progress %d completed, ret: %s", progress.ID, completed)
+	log.WithContext(ctx).Infof("condition progress %d completed, ret: %v", progress.ID, completed)
+	if !completed {
+		log.WithContext(ctx).Infof(
+			"skip task completion for condition progress %d, complete CAS missed (inactive or stale event)",
+			progress.ID,
+		)
+		return nil
+	}
 	return s.tryCompleteTaskExecution(ctx, progress.TaskExecutionProgressID, progress.TaskID, progress.UserID)
 }
 
