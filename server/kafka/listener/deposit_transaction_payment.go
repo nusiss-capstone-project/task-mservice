@@ -45,8 +45,8 @@ func handleDepositOrderPaymentResultEvent(ctx context.Context, msg *kafka.Messag
 	if err := event.Validate(); err != nil {
 		return fmt.Errorf("invalid deposit order payment result event: %w", err)
 	}
-	if event.Status != paymentStatusOK {
-		log.WithContext(ctx).Infow("skip deposit payment event, status not pay_succeed",
+	if event.Status != transactionPaymentStatusOK {
+		log.WithContext(ctx).Infow("skip deposit payment event, status not SUCCEEDED",
 			"user_id", event.UserID,
 			"transaction_id", event.TransactionID,
 			"status", event.Status,
